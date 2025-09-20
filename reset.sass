@@ -1,0 +1,99 @@
+// Шрифиты
+
+@font-face
+    font-style: regular
+    font-weight: 400
+    font-display: swap
+    font-family: "montserrat"
+    src: local("montserrat")
+    src: url("fonts/montserrat.woff2") format("woff2")
+    src: url("fonts/montserrat.woff") format("woff")
+    src: url("fonts/montserrat.ttf") format("truetype")
+// Scroll
+
+::-webkit-scrollbar
+    background: white
+    
+::-webkit-scrollbar-thumb
+    background: #e6e6e6
+    border-radius: 1rem
+    
+::-webkit-scrollbar-thumb:active
+    background: #e1e1e1
+
+// Reset
+
+*
+    padding: 0
+    margin: 0
+    border: 0
+
+*,*:before,*:after
+    -webkit-box-sizing: border-box
+    box-sizing: border-box
+
+:focus,:active
+    outline: none
+
+a:focus,a:active
+    outline: none
+
+nav,footer,header,aside
+    display: block
+
+html,body
+    height: 100%
+    width: 100%
+    font-size: 16px
+    font-style: normal
+    font-weight: 400
+    line-height: 1
+    font-family: "montserrat"
+
+input,button,textarea
+    font-family: inherit
+
+input::-ms-clear
+    display: none
+
+button
+    cursor: pointer
+
+button::-moz-focus-inner
+    padding: 0
+    border: 0
+
+a, a:visited
+    text-decoration: none
+
+a:hover
+    text-decoration: none
+
+ul li
+    list-style: none
+
+img
+    vertical-align: top
+
+h1
+    width: 100%
+    text-align: center
+  
+.main-container
+    display: flex
+    flex-direction: column
+    gap: 0.75rem
+    padding: 0.5rem
+    max-width: 120rem
+    width: 100%
+  
+.main
+    display: flex
+    flex-direction: column
+    align-items: center
+  
+.v-card .v-card-text
+    padding-top: 1rem
+  
+[type=number]::-webkit-inner-spin-button
+    display: none
