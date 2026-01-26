@@ -148,6 +148,9 @@
           <template v-slot:item.UF_CRM_1744062581756="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1744062581756) }}
           </template>
+          <template v-slot:item.UF_CRM_1744096783472="{ item }">
+            {{ formatDate(item.UF_CRM_1744096783472) }}
+          </template>
           <template v-slot:tfoot>
             <tfoot>
               <tr class="v-data-table__footer-row">
@@ -157,6 +160,7 @@
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742972167794) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742972105926) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1744062581756) }}</td>
+                <td></td>
               </tr>
             </tfoot>
           </template>
@@ -469,11 +473,13 @@ const headers = ref([
   { title: "Ответственный", key: "ASSIGNED_BY_ID", align: "center"},
   { title: "Статус", key: "status", align: "center"},
   { title: "Категория", key: "stage", align: "center"},
-  { title: "Доходный", key: "UF_CRM_1745222013992", align: "center"},
-  { title: "Участие", key: "UF_CRM_1742971372921", align: "center"},
+  { title: "Финальная", key: "UF_CRM_1742971372921", align: "center"},
+  { title: "Предварительная", key: "UF_CRM_1745222013992", align: "center"},
   { title: "Внебюджет", key: "UF_CRM_1742972167794", align: "center"},
   { title: "Доп. продажи", key: "UF_CRM_1742972105926", align: "center"},
   { title: "Общая", key: "UF_CRM_1744062581756", align: "center"},
+  { title: "Дата передачи", key: "UF_CRM_1744096783472", align: "center"},
+  
 ]);
 
 const headers2 = ref([
@@ -517,93 +523,112 @@ const getStatusColor = (status) => {
       filters.value.selected[type] = [];
     }
   };
-
 const groupedEvents = computed(() => {
-      const groups = {};
-      
-      deals.value.forEach(deal => {
-        const event = events.value.find(e => e.id == deal.UF_CRM_1742797326);
-        console.log(events);
-        const planProfit = event && event.ufCrm38_1745221903440 ? event.ufCrm38_1745221903440.replace('|RUB', "") : 0;
-        if (!groups[deal.UF_CRM_1742797326]) {
-          groups[deal.UF_CRM_1742797326] = {
-            UF_CRM_1742797326: deal.UF_CRM_1742797326,
-            percent: event && event.ufCrm38_1750948951651 ? Math.round(event.ufCrm38_1750948951651 * 100) / 100 : 0,
-            start: event ? moment(event.ufCrm38_1745307580193.split('T')[0]).format('DD.MM.YYYY') + " - " + moment(event.ufCrm38_1751875905992.split('T')[0]).format('DD.MM.YYYY') : null,
-            summ: 0,
-            pot: 0,
-            planProfit: planProfit,
-            over: -planProfit,
-            dog: 0,
-            pd: 0,
-            UF_CRM_1744062581756: deal.UF_CRM_1744062581756,
-            STAGE_ID: deal.STAGE_ID,
-            event: event && event.title ? event.title : '',
-            UF_CRM_1745222013992: deal.UF_CRM_1745222013992,
-          };
-        }
-        
-
-        const summDeal = parseInt(deal.UF_CRM_1744062581756);
-
-        //groups[deal.UF_CRM_1742797326].summ += parseInt( groups[deal.UF_CRM_1742797326].UF_CRM_1744062581756.replace(/\s/g, ""));
-        if( deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL"){
-           groups[deal.UF_CRM_1742797326].pot += summDeal;
-        }else if( deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
-           groups[deal.UF_CRM_1742797326].dog += summDeal;
-        }else if(deal.STAGE_ID === "C32:UC_R5DX1H"){
-          groups[deal.UF_CRM_1742797326].summ += summDeal;
-        }
-
-        if(deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL" || deal.STAGE_ID === "C32:UC_5BBXZ5" ||  deal.STAGE_ID === "C32:UC_6VDO9F"){
-          groups[deal.UF_CRM_1742797326].pd += summDeal;
-        }
-
-        if(deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL" || deal.STAGE_ID === "C32:UC_R5DX1H" || deal.STAGE_ID === "C32:UC_5BBXZ5" ||  deal.STAGE_ID === "C32:UC_6VDO9F"){
-          groups[deal.UF_CRM_1742797326].over += summDeal;
-        }
-      });
-
-for (let key in groups) {
-    const innerObj = groups[key]; // Получаем внутренний объект
-    // Проверка значения свойства "over"
-    if (innerObj.over !== undefined && innerObj.over <= 0) {
-        innerObj.over = ''; // Меняем на null, если значение меньше или равно 0
+  const groups = {};
+  
+  deals.value.forEach(deal => {
+    const event = events.value.find(e => e.id == deal.UF_CRM_1742797326);
+    const planProfit = event && event.ufCrm38_1745221903440 ? parseFloat(event.ufCrm38_1745221903440.replace('|RUB', "")) : 0;
+    
+    if (!groups[deal.UF_CRM_1742797326]) {
+      groups[deal.UF_CRM_1742797326] = {
+        UF_CRM_1742797326: deal.UF_CRM_1742797326,
+        percent: event && event.ufCrm38_1750948951651 ? Math.round(event.ufCrm38_1750948951651 * 100) / 100 : 0,
+        start: event ? moment(event.ufCrm38_1745307580193.split('T')[0]).format('DD.MM.YYYY') + " - " + moment(event.ufCrm38_1751875905992.split('T')[0]).format('DD.MM.YYYY') : null,
+        summ: 0,
+        pot: 0,
+        planProfit: planProfit,
+        over: -planProfit, // Инициализируем отрицательным значением плана
+        dog: 0,
+        pd: 0,
+        UF_CRM_1744062581756: deal.UF_CRM_1744062581756,
+        STAGE_ID: deal.STAGE_ID,
+        event: event && event.title ? event.title : '',
+        UF_CRM_1745222013992: deal.UF_CRM_1745222013992,
+      };
     }
-}
+    
+    const summDeal = parseFloat(deal.UF_CRM_1744062581756);
 
-      return Object.values(groups);
+    // Увеличиваем собранную сумму для переданных сделок
+    if(deal.STAGE_ID === "C32:UC_R5DX1H"){
+      groups[deal.UF_CRM_1742797326].summ += summDeal;
+    }
+    
+    // Увеличиваем потенциал для соответствующих стадий
+    if( deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL"){
+      groups[deal.UF_CRM_1742797326].pot += summDeal;
+    }else if( deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
+      groups[deal.UF_CRM_1742797326].dog += summDeal;
+    }
+    
+    // Увеличиваем сумму П/Д для соответствующих стадий
+    if(deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL" || 
+       deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
+      groups[deal.UF_CRM_1742797326].pd += summDeal;
+    }
+    
+    // Увеличиваем over для всех стадий, кроме передано
+    if(deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL" || 
+       deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
+      groups[deal.UF_CRM_1742797326].over += summDeal;
+    }
+  });
+
+  // После обработки всех сделок, корректируем значение over для каждого мероприятия
+  for (let key in groups) {
+    const innerObj = groups[key];
+    
+    // РАСЧЕТ СОБРАНО СВЕРХУ: План выручки - Собранная сумма
+    const overValue = parseFloat(innerObj.summ) - parseFloat(innerObj.planProfit);
+    
+    // Проверка значения "over" - показываем только если > 0
+    if (overValue > 0) {
+      innerObj.over = overValue.toFixed(2); // Форматируем до 2 знаков после запятой
+    } else {
+      innerObj.over = ''; // Пустая строка, если <= 0
+    }
+  }
+
+  return Object.values(groups);
 });
+
 const table1 = ref([]);
 const totalRow2 = computed(() => {
-  /*
-    totalRow2.value.pd += innerObj.pd ? +innerObj.pd : 0;
-    totalRow2.value.summ += innerObj.summ ? +innerObj.summ : 0;
-    totalRow2.value.dog += innerObj.dog ? +innerObj.dog : 0;
-    totalRow2.value.planProfit += innerObj.planProfit ? +innerObj.planProfit : 0;
-    totalRow2.value.pot += innerObj.pot ? +innerObj.pot : 0;
-*/
-if(groupedEvents.value !== undefined){
-  const row = {
+  if(groupedEvents.value !== undefined){
+    const row = {
+      summ: 0,
+      pot: 0,
+      dog: 0,
+      pd: 0,
+      over: 0,
+      planProfit: 0,
+    }
+
+    groupedEvents.value.forEach(deal => {
+      row.summ += parseFloat(deal.summ) || 0;
+      row.pot += parseFloat(deal.pot) || 0;
+      row.dog += parseFloat(deal.dog) || 0;
+      row.pd += parseFloat(deal.pd) || 0;
+      row.planProfit += parseFloat(deal.planProfit) || 0;
+      
+      // Для "Собрано сверху" суммируем только положительные значения
+      const overValue = parseFloat(deal.over) || 0;
+      if (overValue > 0) {
+        row.over += overValue;
+      }
+    });
+    
+    return row;
+  }
+  return {
     summ: 0,
     pot: 0,
     dog: 0,
     pd: 0,
     over: 0,
     planProfit: 0,
-  }
-
-  groupedEvents.value.forEach(deal => {
-
-    row.summ += +deal.summ;
-    row.pot += +deal.pot;
-    row.dog += +deal.dog;
-    row.pd += +deal.pd;
-    row.over += +deal.over;
-    row.planProfit += +deal.planProfit;
-  });
-  return row;
-}
+  };
 });
 
 
@@ -697,7 +722,7 @@ const getData = (async() => {
   UF_CRM_1742972105926: 0,
   UF_CRM_1744062581756: 0,
 };
-  const filterAssigned = filters.value.selected.assigned.length === 0 ? filters.value.value.assigned.map(item => item.ID) : filters.value.selected.assigned;
+  //const filterAssigned = filters.value.selected.assigned.length === 0 ? filters.value.value.assigned.map(item => item.ID) : filters.value.selected.assigned;
   const filterCategory = filters.value.selected.category.length === 0 ? filters.value.value.category.map(item => item.id) : filters.value.selected.category;
   const filterEvents = filters.value.selected.events.length === 0 ? filters.value.value.events.map(item => item.id) : filters.value.selected.events;
   let dates = [];
@@ -711,16 +736,45 @@ const getData = (async() => {
   }else{
     dates[1] = null;
   }
-
+ // ДАННЫЕ ДЛЯ ПЕРВОЙ ТАБЛИЦЫ - через callApi
+  let dealsLocal = await callApi(
+    "crm.deal.list", 
+    {
+      ">DATE_CREATE": dates[0],
+      "<DATE_CREATE": dates[1],
+      "STAGE_ID": filterCategory,
+      "UF_CRM_1742797326": filterEvents,
+    }, 
+    [
+      "UF_CRM_1744096783472", 
+      'UF_CRM_1742797326',
+      "STAGE_ID", 
+      "ASSIGNED_BY_ID", 
+      'UF_CRM_1744890618774', 
+      'UF_CRM_1744062581756', 
+      'UF_CRM_1745995594', 
+      'UF_CRM_1744064620850', 
+      'UF_CRM_1744095783871', 
+      'UF_CRM_1742906712910', 
+      "UF_CRM_1745222013992", 
+      "UF_CRM_1742971372921", 
+      "UF_CRM_1742972105926", 
+      "UF_CRM_1742972167794", 
+      "UF_CRM_1745308616558",
+    ], 
+    null, 
+    0, 
+    0
+  );
   //let dealsLocal = await callApi("crm.deal.list", {">DATE_CREATE": dates[0], "<DATE_CREATE": dates[1], "STAGE_ID": filterCategory, "ASSIGNED_BY_ID": filterAssigned, "UF_CRM_1742797326": filterEvents}, ["UF_CRM_1744096783472", 'UF_CRM_1742797326',"STAGE_ID", "ASSIGNED_BY_ID", 'UF_CRM_1744890618774', 'UF_CRM_1744062581756', 'UF_CRM_1745995594', 'UF_CRM_1744064620850', 'UF_CRM_1744095783871', 'UF_CRM_1742906712910', "UF_CRM_1745222013992", "UF_CRM_1742971372921", "UF_CRM_1742972105926", "UF_CRM_1742972167794", "UF_CRM_1745308616558"], null, 0, 0);
-        let dealsLocal = [];
+      let dealsLocal2 = [];
       let start = 0;
       const batchSize = 50; // Размер пачки для запроса
       let hasMore = true;
 
       while (hasMore) {
         try {
-          const response = await fetch("https://master.rymar-consulting.ru/request/handler.php", {
+          const response = await fetch("https://b24market.webtm.ru/test/handler.php", {
             method: "POST",
             headers: {
               'Content-Type': 'application/json'
@@ -731,7 +785,7 @@ const getData = (async() => {
                 ">DATE_CREATE": dates[0],
                 "<DATE_CREATE": dates[1],
                 "STAGE_ID": filterCategory,
-                "ASSIGNED_BY_ID": filterAssigned, 
+                "ASSIGNED_BY_ID": filters.value.selected.assigned, 
                 "UF_CRM_1742797326": filterEvents,
               },
               "select": ["UF_CRM_1744096783472", 'UF_CRM_1742797326',"STAGE_ID", "ASSIGNED_BY_ID", 'UF_CRM_1744890618774', 'UF_CRM_1744062581756', 'UF_CRM_1745995594', 'UF_CRM_1744064620850', 'UF_CRM_1744095783871', 'UF_CRM_1742906712910', "UF_CRM_1745222013992", "UF_CRM_1742971372921", "UF_CRM_1742972105926", "UF_CRM_1742972167794", "UF_CRM_1745308616558"],
@@ -743,7 +797,7 @@ const getData = (async() => {
           const data = await response.json();
           
           if (data.data && data.data.length > 0) {
-            dealsLocal = dealsLocal.concat(data.data);
+            dealsLocal2 = dealsLocal2.concat(data.data);
             start += batchSize;
             
             // Если получено меньше элементов, чем запрошено, значит это последняя страница
@@ -865,15 +919,13 @@ dealsLocal.forEach(deal => {
       totalRow.value.UF_CRM_1742972167794 += +deal.UF_CRM_1742972167794;
       totalRow.value.UF_CRM_1742972105926 += +deal.UF_CRM_1742972105926;
       totalRow.value.UF_CRM_1744062581756 += +deal.UF_CRM_1744062581756;
- // }
+  //}
 });
 
-table1.value = JSON.parse(JSON.stringify(dealsLocal.filter(deal => 
-  currentUser.ID === deal.user
-)));
+table1.value = JSON.parse(JSON.stringify(dealsLocal));
 
-deals.value = JSON.parse(JSON.stringify(dealsLocal));
-
+deals.value = JSON.parse(JSON.stringify(dealsLocal2));
+console.log(deals.value);
   deals2.value = [];
   isLoading.value = false;
 });
