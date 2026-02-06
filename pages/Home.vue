@@ -133,11 +133,11 @@
               {{ item.stage }}
             </v-chip>
           </template>
-          <template v-slot:item.UF_CRM_1745222013992="{ item }">
-            {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1745222013992) }}
-          </template>
           <template v-slot:item.UF_CRM_1742971372921="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1742971372921) }}
+          </template>
+          <template v-slot:item.UF_CRM_1745222013992="{ item }">
+            {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1745222013992) }}
           </template>
           <template v-slot:item.UF_CRM_1742972167794="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1742972167794) }}
@@ -473,8 +473,8 @@ const headers = ref([
   { title: "Ответственный", key: "ASSIGNED_BY_ID", align: "center"},
   { title: "Статус", key: "status", align: "center"},
   { title: "Категория", key: "stage", align: "center"},
-  { title: "Предварительная", key: "UF_CRM_1745222013992", align: "center"},
-  { title: "Финальная", key: "UF_CRM_1742971372921", align: "center"},
+  { title: "Предварительная", key: "UF_CRM_1742971372921", align: "center"},
+  { title: "Финальная", key: "UF_CRM_1745222013992", align: "center"},
   { title: "Внебюджет", key: "UF_CRM_1742972167794", align: "center"},
   { title: "Доп. продажи", key: "UF_CRM_1742972105926", align: "center"},
   { title: "Общая", key: "UF_CRM_1744062581756", align: "center"},
