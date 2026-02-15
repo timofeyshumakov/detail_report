@@ -463,8 +463,9 @@ function disableFilters(){
     filters.value.selectAll[Object.keys(filters.value.selectAll)[i]] = false;
     filters.value.selected[Object.keys(filters.value.selected)[i]] = [];
   }
-  filters.selected.dateFrom = null;
-  filters.selected.dateTo = null;
+  // ИСПРАВЛЕНО: используем filters.value.selected, а не filters.selected
+  filters.value.selected.dateFrom = null;
+  filters.value.selected.dateTo = null;
 }
 
 const headers = ref([
@@ -512,17 +513,23 @@ const getStatusColor = (status) => {
   }
 };
 
-  const toggleSelectAll = (type) => {
-
-    if (filters.value.selectAll[type]) {
-      filters.value.selected[type] =
+const toggleSelectAll = (type) => {
+  if (filters.value.selectAll[type]) {
+    filters.value.selected[type] =
       typeof filters.value.value[type][0] === 'object'
-        ? filters.value.value[type].map((item) => item.id || item.ID)
+        ? filters.value.value[type].map((item) => {
+            // ИСПРАВЛЕНО: для assigned используем ID, для остальных id
+            if (type === 'assigned') {
+              return item.ID;
+            } else {
+              return item.id || item.ID;
+            }
+          })
         : filters.value.value[type];
-    } else {
-      filters.value.selected[type] = [];
-    }
-  };
+  } else {
+    filters.value.selected[type] = [];
+  }
+};
 const groupedEvents = computed(() => {
   const groups = {};
   
@@ -722,7 +729,7 @@ const getData = (async() => {
   UF_CRM_1742972105926: 0,
   UF_CRM_1744062581756: 0,
 };
-  //const filterAssigned = filters.value.selected.assigned.length === 0 ? filters.value.value.assigned.map(item => item.ID) : filters.value.selected.assigned;
+  const filterAssigned = filters.value.selected.assigned.length === 0 ? filters.value.value.assigned.map(item => item.ID) : filters.value.selected.assigned;
   const filterCategory = filters.value.selected.category.length === 0 ? filters.value.value.category.map(item => item.id) : filters.value.selected.category;
   const filterEvents = filters.value.selected.events.length === 0 ? filters.value.value.events.map(item => item.id) : filters.value.selected.events;
   let dates = [];
@@ -743,6 +750,7 @@ const getData = (async() => {
       ">DATE_CREATE": dates[0],
       "<DATE_CREATE": dates[1],
       "STAGE_ID": filterCategory,
+      "ASSIGNED_BY_ID": filterAssigned, 
       "UF_CRM_1742797326": filterEvents,
     }, 
     [
@@ -784,8 +792,9 @@ const getData = (async() => {
               "filters": {
                 ">DATE_CREATE": dates[0],
                 "<DATE_CREATE": dates[1],
+                "ASSIGNED_BY_ID": filterAssigned, 
                 "STAGE_ID": filterCategory,
-                "ASSIGNED_BY_ID": filters.value.selected.assigned, 
+                "ASSIGNED_BY_ID": filterAssigned, 
                 "UF_CRM_1742797326": filterEvents,
               },
               "select": ["UF_CRM_1744096783472", 'UF_CRM_1742797326',"STAGE_ID", "ASSIGNED_BY_ID", 'UF_CRM_1744890618774', 'UF_CRM_1744062581756', 'UF_CRM_1745995594', 'UF_CRM_1744064620850', 'UF_CRM_1744095783871', 'UF_CRM_1742906712910', "UF_CRM_1745222013992", "UF_CRM_1742971372921", "UF_CRM_1742972105926", "UF_CRM_1742972167794", "UF_CRM_1745308616558"],
