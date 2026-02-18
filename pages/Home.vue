@@ -9,7 +9,7 @@
             <div class="filters">
               <v-autocomplete
                 v-model="filters.selected.assigned"
-                :items="filters.value.assigned"
+                :items="availableAssigned"
                 item-title="FULL_NAME"
                 item-value="ID"
                 label="Ответственный"
@@ -133,11 +133,11 @@
               {{ item.stage }}
             </v-chip>
           </template>
-          <template v-slot:item.UF_CRM_1742971372921="{ item }">
-            {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1742971372921) }}
-          </template>
           <template v-slot:item.UF_CRM_1745222013992="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1745222013992) }}
+          </template>
+          <template v-slot:item.UF_CRM_1742971372921="{ item }">
+            {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1742971372921) }}
           </template>
           <template v-slot:item.UF_CRM_1742972167794="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.UF_CRM_1742972167794) }}
@@ -155,8 +155,8 @@
             <tfoot>
               <tr class="v-data-table__footer-row">
                 <td colspan="5" class="text-left">Итого:</td>
-                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742971372921) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1745222013992) }}</td>
+                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742971372921) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742972167794) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742972105926) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1744062581756) }}</td>
@@ -463,9 +463,8 @@ function disableFilters(){
     filters.value.selectAll[Object.keys(filters.value.selectAll)[i]] = false;
     filters.value.selected[Object.keys(filters.value.selected)[i]] = [];
   }
-  // ИСПРАВЛЕНО: используем filters.value.selected, а не filters.selected
-  filters.value.selected.dateFrom = null;
-  filters.value.selected.dateTo = null;
+  filters.selected.dateFrom = null;
+  filters.selected.dateTo = null;
 }
 
 const headers = ref([
@@ -474,8 +473,8 @@ const headers = ref([
   { title: "Ответственный", key: "ASSIGNED_BY_ID", align: "center"},
   { title: "Статус", key: "status", align: "center"},
   { title: "Категория", key: "stage", align: "center"},
-  { title: "Предварительная", key: "UF_CRM_1742971372921", align: "center"},
-  { title: "Финальная", key: "UF_CRM_1745222013992", align: "center"},
+  { title: "Предварительная", key: "UF_CRM_1745222013992", align: "center"},
+  { title: "Финальная", key: "UF_CRM_1742971372921", align: "center"},
   { title: "Внебюджет", key: "UF_CRM_1742972167794", align: "center"},
   { title: "Доп. продажи", key: "UF_CRM_1742972105926", align: "center"},
   { title: "Общая", key: "UF_CRM_1744062581756", align: "center"},
@@ -513,23 +512,17 @@ const getStatusColor = (status) => {
   }
 };
 
-const toggleSelectAll = (type) => {
-  if (filters.value.selectAll[type]) {
-    filters.value.selected[type] =
+  const toggleSelectAll = (type) => {
+
+    if (filters.value.selectAll[type]) {
+      filters.value.selected[type] =
       typeof filters.value.value[type][0] === 'object'
-        ? filters.value.value[type].map((item) => {
-            // ИСПРАВЛЕНО: для assigned используем ID, для остальных id
-            if (type === 'assigned') {
-              return item.ID;
-            } else {
-              return item.id || item.ID;
-            }
-          })
+        ? filters.value.value[type].map((item) => item.id || item.ID)
         : filters.value.value[type];
-  } else {
-    filters.value.selected[type] = [];
-  }
-};
+    } else {
+      filters.value.selected[type] = [];
+    }
+  };
 const groupedEvents = computed(() => {
   const groups = {};
   
@@ -696,248 +689,274 @@ function percentMap(percent){
       return 'green darken-1'; 
 }
 
-const menuFrom = ref(false);
-const menuTo = ref(false);
-
-const formattedDateFrom = computed(() => filters.selected.dateFrom ? moment(filters.selected.dateFrom).format('DD.MM.YYYY') : null);
-const formattedDateTo = computed(() => filters.selected.dateTo ? moment(filters.selected.dateTo).format('DD.MM.YYYY') : null);
-
-onMounted(async() => {
-filters.value.value.events = await callApi("crm.item.list", {"!ufCrm38_1751875905992": "null"}, ["id", "title"], 1052, 0, 0);
-filters.value.value.events = filters.value.value.events;
-const assigned = await callApi("user.get", {}, ["NAME", "SECOND_NAME", "LAST_NAME", "ID"], null, 0, 0);
-
-assigned.forEach(user => {
-  const parts = [];
-  if (user.NAME) parts.push(user.NAME);
-  if (user.SECOND_NAME) parts.push(user.SECOND_NAME);
-  if (user.LAST_NAME) parts.push(user.LAST_NAME);
+onMounted(async () => {
+  filters.value.value.events = await callApi("crm.item.list", 
+    { "!ufCrm38_1751875905992": "null" }, 
+    ["id", "title"], 
+    1052, 0, 0
+  );
   
-  user.FULL_NAME = parts.join(' ');
-});
-filters.value.value.assigned = JSON.parse(JSON.stringify(assigned));
-await getData();
-  isLoading.value = false;
-})
+  const assigned = await callApi("user.get", {}, ["NAME", "SECOND_NAME", "LAST_NAME", "ID"], null, 0, 0);
 
-const getData = (async() => {
+  assigned.forEach(user => {
+    const parts = [];
+    if (user.NAME) parts.push(user.NAME);
+    if (user.SECOND_NAME) parts.push(user.SECOND_NAME);
+    if (user.LAST_NAME) parts.push(user.LAST_NAME);
+    
+    user.FULL_NAME = parts.join(' ');
+  });
+  
+  filters.value.value.assigned = JSON.parse(JSON.stringify(assigned));
+  
+  await getData();
+
+  const assignedIds = [...new Set(deals.value.map(deal => deal.ASSIGNED_BY_ID))];
+  // Фильтруем список всех пользователей, оставляя только тех, кто есть в сделках
+  availableAssigned.value = filters.value.value.assigned.filter(user => 
+    assignedIds.includes(user.ID)
+  );
+
+  isLoading.value = false;
+});
+const availableAssigned = ref([]);
+const getData = async () => {
   isLoading.value = true;
+  
+  // Сброс итоговых сумм
   totalRow.value = {
-  UF_CRM_1745222013992: 0,
-  UF_CRM_1742971372921: 0,
-  UF_CRM_1742972167794: 0,
-  UF_CRM_1742972105926: 0,
-  UF_CRM_1744062581756: 0,
-};
-  const filterAssigned = filters.value.selected.assigned.length === 0 ? filters.value.value.assigned.map(item => item.ID) : filters.value.selected.assigned;
-  const filterCategory = filters.value.selected.category.length === 0 ? filters.value.value.category.map(item => item.id) : filters.value.selected.category;
-  const filterEvents = filters.value.selected.events.length === 0 ? filters.value.value.events.map(item => item.id) : filters.value.selected.events;
+    UF_CRM_1745222013992: 0,
+    UF_CRM_1742971372921: 0,
+    UF_CRM_1742972167794: 0,
+    UF_CRM_1742972105926: 0,
+    UF_CRM_1744062581756: 0,
+  };
+
+  // Подготовка фильтров
+  const filterAssigned = filters.value.selected.assigned.length === 0 
+    ? filters.value.value.assigned.map(item => item.ID) 
+    : filters.value.selected.assigned;
+  
+  const filterCategory = filters.value.selected.category.length === 0 
+    ? filters.value.value.category.map(item => item.id) 
+    : filters.value.selected.category;
+  
+  const filterEvents = filters.value.selected.events.length === 0 
+    ? filters.value.value.events.map(item => item.id) 
+    : filters.value.selected.events;
+  
+  // Подготовка дат
   let dates = [];
-  if(filters.value.selected.dateFrom){
+  if (filters.value.selected.dateFrom) {
     dates[0] = moment(filters.value.selected.dateFrom).format('YYYY-MM-DD');
-  }else{
+  } else {
     dates[0] = null;
   }
-  if(filters.value.selected.dateTo){
+  if (filters.value.selected.dateTo) {
     dates[1] = moment(filters.value.selected.dateTo).format('YYYY-MM-DD');
-  }else{
+  } else {
     dates[1] = null;
   }
- // ДАННЫЕ ДЛЯ ПЕРВОЙ ТАБЛИЦЫ - через callApi
-  let dealsLocal = await callApi(
-    "crm.deal.list", 
-    {
-      ">DATE_CREATE": dates[0],
-      "<DATE_CREATE": dates[1],
-      "STAGE_ID": filterCategory,
-      "ASSIGNED_BY_ID": filterAssigned, 
-      "UF_CRM_1742797326": filterEvents,
-    }, 
-    [
-      "UF_CRM_1744096783472", 
-      'UF_CRM_1742797326',
-      "STAGE_ID", 
-      "ASSIGNED_BY_ID", 
-      'UF_CRM_1744890618774', 
-      'UF_CRM_1744062581756', 
-      'UF_CRM_1745995594', 
-      'UF_CRM_1744064620850', 
-      'UF_CRM_1744095783871', 
-      'UF_CRM_1742906712910', 
-      "UF_CRM_1745222013992", 
-      "UF_CRM_1742971372921", 
-      "UF_CRM_1742972105926", 
-      "UF_CRM_1742972167794", 
-      "UF_CRM_1745308616558",
-    ], 
-    null, 
-    0, 
-    0
-  );
-  //let dealsLocal = await callApi("crm.deal.list", {">DATE_CREATE": dates[0], "<DATE_CREATE": dates[1], "STAGE_ID": filterCategory, "ASSIGNED_BY_ID": filterAssigned, "UF_CRM_1742797326": filterEvents}, ["UF_CRM_1744096783472", 'UF_CRM_1742797326',"STAGE_ID", "ASSIGNED_BY_ID", 'UF_CRM_1744890618774', 'UF_CRM_1744062581756', 'UF_CRM_1745995594', 'UF_CRM_1744064620850', 'UF_CRM_1744095783871', 'UF_CRM_1742906712910', "UF_CRM_1745222013992", "UF_CRM_1742971372921", "UF_CRM_1742972105926", "UF_CRM_1742972167794", "UF_CRM_1745308616558"], null, 0, 0);
-      let dealsLocal2 = [];
-      let start = 0;
-      const batchSize = 50; // Размер пачки для запроса
-      let hasMore = true;
 
-      while (hasMore) {
-        try {
-          const response = await fetch("https://b24market.webtm.ru/test/handler.php", {
-            method: "POST",
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              "method": "crm.deal.list",
-              "filters": {
-                ">DATE_CREATE": dates[0],
-                "<DATE_CREATE": dates[1],
-                "ASSIGNED_BY_ID": filterAssigned, 
-                "STAGE_ID": filterCategory,
-                "ASSIGNED_BY_ID": filterAssigned, 
-                "UF_CRM_1742797326": filterEvents,
-              },
-              "select": ["UF_CRM_1744096783472", 'UF_CRM_1742797326',"STAGE_ID", "ASSIGNED_BY_ID", 'UF_CRM_1744890618774', 'UF_CRM_1744062581756', 'UF_CRM_1745995594', 'UF_CRM_1744064620850', 'UF_CRM_1744095783871', 'UF_CRM_1742906712910', "UF_CRM_1745222013992", "UF_CRM_1742971372921", "UF_CRM_1742972105926", "UF_CRM_1742972167794", "UF_CRM_1745308616558"],
-              "start": start,
-              "limit": batchSize
-            })
-          });
+  // Получаем сделки для второй таблицы (сгруппированные по мероприятиям)
+  let dealsLocal2 = [];
+  let start = 0;
+  const batchSize = 50;
+  let hasMore = true;
 
-          const data = await response.json();
-          
-          if (data.data && data.data.length > 0) {
-            dealsLocal2 = dealsLocal2.concat(data.data);
-            start += batchSize;
-            
-            // Если получено меньше элементов, чем запрошено, значит это последняя страница
-            if (data.data.length < batchSize) {
-              hasMore = false;
-            }
-          } else {
-            hasMore = false;
-          }
-        } catch (error) {
-          console.error('Ошибка при получении сделок:', error);
+  while (hasMore) {
+    try {
+      const response = await fetch("https://b24market.webtm.ru/test/handler.php", {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          "method": "crm.deal.list",
+          "filters": {
+            ">DATE_CREATE": dates[0],
+            "<DATE_CREATE": dates[1],
+            "STAGE_ID": filterCategory,
+            "ASSIGNED_BY_ID": filterAssigned,
+            "UF_CRM_1742797326": filterEvents,
+          },
+          "select": [
+            "UF_CRM_1744096783472", 
+            'UF_CRM_1742797326',
+            "STAGE_ID", 
+            "ASSIGNED_BY_ID", 
+            'UF_CRM_1744890618774', 
+            'UF_CRM_1744062581756', 
+            'UF_CRM_1745995594', 
+            'UF_CRM_1744064620850', 
+            'UF_CRM_1744095783871', 
+            'UF_CRM_1742906712910', 
+            "UF_CRM_1745222013992", 
+            "UF_CRM_1742971372921", 
+            "UF_CRM_1742972105926", 
+            "UF_CRM_1742972167794", 
+            "UF_CRM_1745308616558"
+          ],
+          "start": start,
+          "limit": batchSize
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.data && data.data.length > 0) {
+        dealsLocal2 = dealsLocal2.concat(data.data);
+        start += batchSize;
+        
+        if (data.data.length < batchSize) {
           hasMore = false;
         }
+      } else {
+        hasMore = false;
       }
-
-  const date = moment(); // Текущая дата и время
-  const isoDate = date.toISOString(); // Форматирование даты в ISO-формат
-  events.value = await new Promise((resolve) => {
-  BX24.callMethod(
-    'crm.item.list', 
-    {
-        entityTypeId: 1052,
-        filter: {
-          //">ufCrm38_1751875905992": isoDate 
-        },
-        order: {
-            id: 'DESC',
-        },
-    },
-    (result) => {
-        if (result.error())
-        {
-            console.error(result.error());
-            return;
-        }
-        resolve(result.data().items);
-    },
-);
-});
-/*
-
-  if(filters.value.selected.dateFrom || filters.value.selected.dateTo){
-    dealsLocal = dealsLocal.filter(item => {
-      const date = moment(item.DATE_CREATE);
-      let from = filters.value.selected.dateFrom ? moment(filters.value.selected.dateFrom) : null;
-      let to = filters.value.selected.dateTo ? moment(filters.value.selected.dateTo) : null;
-      if (from && to) {
-        return date.isBetween(from, to, null, '[]');
-      } else if (from) {
-        return date.isSameOrAfter(from);
-      } else if (to) {
-        return date.isSameOrBefore(to);
-      }
-      return true;
-    });
+    } catch (error) {
+      console.error('Ошибка при получении сделок:', error);
+      hasMore = false;
+    }
   }
-    */
-const statuses = await new Promise((resolve) => {
-  BX24.callMethod(
-    'crm.item.list', 
-    {
-        entityTypeId: 1080,
-        order: {
-            id: 'DESC',
-        },
-    },
-    (result) => {
-        if (result.error())
-        {
-            console.error(result.error());
 
-            return;
+  // Получаем сделки для первой таблицы (детальная информация)
+  let dealsLocal = [];
+  start = 0;
+  hasMore = true;
+
+  while (hasMore) {
+    try {
+      const response = await fetch("https://b24market.webtm.ru/test/handler.php", {
+        method: "POST",
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          "method": "crm.deal.list",
+          "filters": {
+            ">DATE_CREATE": dates[0],
+            "<DATE_CREATE": dates[1],
+            "STAGE_ID": filterCategory,
+            "ASSIGNED_BY_ID": filterAssigned,
+            "UF_CRM_1742797326": filterEvents,
+          },
+          "select": [
+            "UF_CRM_1744096783472", 
+            'UF_CRM_1742797326',
+            "STAGE_ID", 
+            "ASSIGNED_BY_ID", 
+            'UF_CRM_1744890618774', 
+            'UF_CRM_1744062581756', 
+            'UF_CRM_1745995594', 
+            'UF_CRM_1744064620850', 
+            'UF_CRM_1744095783871', 
+            'UF_CRM_1742906712910', 
+            "UF_CRM_1745222013992", 
+            "UF_CRM_1742971372921", 
+            "UF_CRM_1742972105926", 
+            "UF_CRM_1742972167794", 
+            "UF_CRM_1745308616558"
+          ],
+          "start": start,
+          "limit": batchSize
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.data && data.data.length > 0) {
+        dealsLocal = dealsLocal.concat(data.data);
+        start += batchSize;
+        
+        if (data.data.length < batchSize) {
+          hasMore = false;
+        }
+      } else {
+        hasMore = false;
+      }
+    } catch (error) {
+      console.error('Ошибка при получении сделок:', error);
+      hasMore = false;
+    }
+  }
+
+  // Получаем дополнительные данные (мероприятия, статусы, пользователи)
+  const date = moment();
+  const isoDate = date.toISOString();
+  
+  events.value = await new Promise((resolve) => {
+    BX24.callMethod(
+      'crm.item.list', 
+      {
+        entityTypeId: 1052,
+        filter: {},
+        order: { id: 'DESC' },
+      },
+      (result) => {
+        if (result.error()) {
+          console.error(result.error());
+          return;
         }
         resolve(result.data().items);
-    },
-);
-});
+      },
+    );
+  });
 
-const usersFind = Array.from(new Set(dealsLocal.map(deal => deal.ASSIGNED_BY_ID)));
-//const fields = await callApi("crm.deal.fields", {}, ["UF_CRM_1744064620850"]);
-const users = await callApi("user.get", {"ID": usersFind}, []);
+  const statuses = await new Promise((resolve) => {
+    BX24.callMethod(
+      'crm.item.list', 
+      {
+        entityTypeId: 1080,
+        order: { id: 'DESC' },
+      },
+      (result) => {
+        if (result.error()) {
+          console.error(result.error());
+          return;
+        }
+        resolve(result.data().items);
+      },
+    );
+  });
+
+  const usersFind = Array.from(new Set(dealsLocal.map(deal => deal.ASSIGNED_BY_ID)));
+  const users = await callApi("user.get", { "ID": usersFind }, []);
+
+  // Обработка данных для первой таблицы
   dealsLocal.forEach(obj => {
     const event = events.value.find(e => e.id == obj.UF_CRM_1742797326);
     const user = users.find(e => e.ID == obj.ASSIGNED_BY_ID);
-    const status = statuses.find(e => e.id == obj.UF_CRM_1745995594[0]);
-    obj.UF_CRM_1745995594 = obj.UF_CRM_1745995594[0];
+    const status = statuses.find(e => e.id == obj.UF_CRM_1745995594?.[0]);
+    
+    obj.UF_CRM_1745995594 = obj.UF_CRM_1745995594?.[0];
     obj.UF_CRM_1745222013992 = obj.UF_CRM_1745222013992 ? obj.UF_CRM_1745222013992.replace('|RUB', "") : 0;
     obj.UF_CRM_1742971372921 = obj.UF_CRM_1742971372921 ? obj.UF_CRM_1742971372921.replace('|RUB', "") : 0;
     obj.UF_CRM_1742972105926 = obj.UF_CRM_1742972105926 ? obj.UF_CRM_1742972105926.replace('|RUB', "") : 0;
     obj.UF_CRM_1742972167794 = obj.UF_CRM_1742972167794 ? obj.UF_CRM_1742972167794.replace('|RUB', "") : 0;
     obj.UF_CRM_1744062581756 = obj.UF_CRM_1744062581756 ? obj.UF_CRM_1744062581756.replace('|RUB', "") : 0;
+    
     obj.event = event && event.title ? event.title : "";
-    obj.ASSIGNED_BY_ID = displayFullName(user.LAST_NAME, user.NAME, user.SECOND_NAME);
+    obj.ASSIGNED_BY_ID = displayFullName(user?.LAST_NAME, user?.NAME, user?.SECOND_NAME);
     obj.status = status && status.title ? status.title : "";
     obj.stage = stageMap(obj.STAGE_ID);
-    obj.user = user.ID;
+    obj.user = user?.ID;
   });
 
- const currentUser = await new Promise((resolve) => {
-            BX24.callMethod(
-          "user.current",
-          {},
-          function(result)
-          {
-              if(result.error())
-                  console.error(result.error());
-              else
-                  resolve(result.data());
-          }
-      )
-    });
+  // Расчет итоговых сумм для первой таблицы
+  dealsLocal.forEach(deal => {
+    totalRow.value.UF_CRM_1745222013992 += +deal.UF_CRM_1745222013992;
+    totalRow.value.UF_CRM_1742971372921 += +deal.UF_CRM_1742971372921;
+    totalRow.value.UF_CRM_1742972167794 += +deal.UF_CRM_1742972167794;
+    totalRow.value.UF_CRM_1742972105926 += +deal.UF_CRM_1742972105926;
+    totalRow.value.UF_CRM_1744062581756 += +deal.UF_CRM_1744062581756;
+  });
 
-
-
-dealsLocal.forEach(deal => {
-  //if(currentUser.ID === deal.user){
-      totalRow.value.UF_CRM_1745222013992 += +deal.UF_CRM_1745222013992;
-      totalRow.value.UF_CRM_1742971372921 += +deal.UF_CRM_1742971372921;
-      totalRow.value.UF_CRM_1742972167794 += +deal.UF_CRM_1742972167794;
-      totalRow.value.UF_CRM_1742972105926 += +deal.UF_CRM_1742972105926;
-      totalRow.value.UF_CRM_1744062581756 += +deal.UF_CRM_1744062581756;
-  //}
-});
-
-table1.value = JSON.parse(JSON.stringify(dealsLocal));
-
-deals.value = JSON.parse(JSON.stringify(dealsLocal2));
-console.log(deals.value);
-  deals2.value = [];
+  table1.value = JSON.parse(JSON.stringify(dealsLocal));
+  deals.value = JSON.parse(JSON.stringify(dealsLocal2));
+  
   isLoading.value = false;
-});
+};
 
 </script>
 
