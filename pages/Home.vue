@@ -710,7 +710,7 @@ onMounted(async () => {
   filters.value.value.assigned = JSON.parse(JSON.stringify(assigned));
   
   await getData();
-
+  console.log(deals.value);
   const assignedIds = [...new Set(deals.value.map(deal => deal.ASSIGNED_BY_ID))];
   // Фильтруем список всех пользователей, оставляя только тех, кто есть в сделках
   availableAssigned.value = filters.value.value.assigned.filter(user => 
@@ -744,7 +744,7 @@ const getData = async () => {
   const filterEvents = filters.value.selected.events.length === 0 
     ? filters.value.value.events.map(item => item.id) 
     : filters.value.selected.events;
-  
+
   // Подготовка дат
   let dates = [];
   if (filters.value.selected.dateFrom) {
@@ -802,22 +802,23 @@ const getData = async () => {
         })
       });
 
-      const data = await response.json();
-      
-      if (data.data && data.data.length > 0) {
-        dealsLocal2 = dealsLocal2.concat(data.data);
-        start += batchSize;
-        
-        if (data.data.length < batchSize) {
+          const data = await response.json();
+          
+          if (data.data && data.data.length > 0) {
+            dealsLocal2 = dealsLocal2.concat(data.data);
+            start += batchSize;
+            
+            // Если получено меньше элементов, чем запрошено, значит это последняя страница
+            if (data.data.length < batchSize) {
+              hasMore = false;
+            }
+          } else {
+            hasMore = false;
+          }
+        } catch (error) {
+          console.error('Ошибка при получении сделок:', error);
           hasMore = false;
         }
-      } else {
-        hasMore = false;
-      }
-    } catch (error) {
-      console.error('Ошибка при получении сделок:', error);
-      hasMore = false;
-    }
   }
 
   // Получаем сделки для первой таблицы (детальная информация)
@@ -864,11 +865,11 @@ const getData = async () => {
       });
 
       const data = await response.json();
-      
+
       if (data.data && data.data.length > 0) {
         dealsLocal = dealsLocal.concat(data.data);
         start += batchSize;
-        
+        console.log(dealsLocal);
         if (data.data.length < batchSize) {
           hasMore = false;
         }
