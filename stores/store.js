@@ -43,6 +43,9 @@ export const useParseStore = defineStore('parseStore', {
     setFilter(key, item) {
         this.filter[key] = item;
     },
+    resetFilters(){
+      this.filter = {};
+    },
     setSelect(array){
       this.select = array;
     },

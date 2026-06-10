@@ -3,10 +3,19 @@ export async function callApi(method: string, filter: {}, select: string[] | nul
     const maxTotal: number = 50;
     let data: any = [];
 
+    if (method.endsWith('.get')) {
+        const id = (filter && typeof filter === 'object' && 'ID' in filter) 
+            ? (filter as any).ID 
+            : (entityTypeId || 0);
+        
+        const result = await callGetMethod(method, id);
+        return result;
+    }
+
     // Проверяем, содержит ли filter массив ID
     const filterHasIdArray = filter && typeof filter === 'object' && 'ID' in filter && Array.isArray((filter as any).ID);
     const idArray = filterHasIdArray ? (filter as any).ID : [];
-    
+    console.log('response');
     // Если filter содержит массив ID и их больше 50, обрабатываем через batch
     if (filterHasIdArray && idArray.length > maxTotal) {
         console.log(`Обработка ${idArray.length} ID через batch запросы`);
@@ -225,6 +234,38 @@ export async function callApi(method: string, filter: {}, select: string[] | nul
     }
     
     return data.items ? data.items : data;
+}
+
+export async function callGetMethod(method: string, id: number | string): Promise<any> {
+    return new Promise((resolve, reject) => {
+        // @ts-ignore
+        BX24.callMethod(method, { id: id }, (res: any) => {
+            if (res.error()) {
+                console.error(`Ошибка в методе ${method}:`, res.error());
+                reject(res.error());
+                return;
+            }
+            
+            const data = res.data();
+            resolve(data);
+        });
+    });
+}
+
+export async function callMethod(method: string, id: number | string, fields: Record<string, unknown>, entityTypeId: number | string): Promise<any> {
+    return new Promise((resolve, reject) => {
+        // @ts-ignore
+        BX24.callMethod(method, { id: id, fields: fields, ...(entityTypeId !== undefined ? { entityTypeId } : {}) }, (res: any) => {
+            if (res.error()) {
+                console.error(`Ошибка в методе ${method}:`, res.error());
+                reject(res.error());
+                return;
+            }
+            
+            const data = res.data();
+            resolve(data);
+        });
+    });
 }
 
 // Пример использования нового метода

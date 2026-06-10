@@ -2,25 +2,36 @@
     v-text-field(
       v-if="showInput"
       class="numbers-input"
-      label="Введите количество дней"
+      label="Количество дней"
       type="number"
-      :modelValue="modelValue"
-      :maxlength="maxlength"
-      @input="onInput"
-      :rules="validationRules"
-      v-mask="'####'"
+      :model-value="value"
+      variant="outlined"
+      density="compact"
+      single-line
+      hide-details
+      @update:model-value="onValueChange"
     )
-      template(#prepend)
-        v-btn(@click="decrement" icon)
-          v-icon(icon="minus-circle" color="primary" class="button-icon")
-      template(#append)
-        v-btn(@click="increment" icon)
-          v-icon(icon="plus-circle" color="primary" class="button-icon")
+      template(#prepend-inner)
+        v-btn(
+          icon
+          variant="text"
+          size="small"
+          aria-label="Уменьшить"
+          @click="decrement"
+        )
+          v-icon(icon="mdi-minus" color="primary")
+      template(#append-inner)
+        v-btn(
+          icon
+          variant="text"
+          size="small"
+          aria-label="Увеличить"
+          @click="increment"
+        )
+          v-icon(icon="mdi-plus" color="primary")
 </template>
-  
-<script>
-// type="email" указывается потому, что в type="number" не работает maxlength
 
+<script>
 export default {
   props: {
     showInput: {
@@ -36,64 +47,41 @@ export default {
       default: 9999,
     },
   },
+  emits: ['update:modelValue'],
   data() {
     return {
-        value: this.modelValue,
-        maxValue: this.maxValue,
+      value: Number(this.modelValue) || 0,
+      maxValue: this.maxValue,
     };
   },
-  computed: {
-    validationRules() {
-      return [
-        v => v >= 0 || 'Минимальное значение 0',
-        v => v <= this.maxValue || 'Максимальное значение ' + this.maxValue,
-        v => /^[0-9]*$/.test(v) || 'Допускаются только цифры',
-      ];
+  watch: {
+    modelValue(newValue) {
+      this.value = Number(newValue) || 0;
     },
   },
   methods: {
-    onInput(event) {
-        if(event){
-          this.value = event.target.value;
-          let value = this.value + '';
-          if(value.startsWith('0') && value.length > 1) {
-              this.value = +value;
-          }
-        if(event.target.value > this.maxValue){
-          event.target.setAttribute('maxlength', this.maxValue.toString().length);
-          this.value = this.maxValue;
-          event.target.value = this.maxValue;
-        }
-      }
-        this.$emit('update:modelValue', this.value);
+    onValueChange(nextValue) {
+      let value = Number(nextValue);
+      if (Number.isNaN(value) || value < 0) value = 0;
+      if (value > this.maxValue) value = this.maxValue;
+      this.value = value;
+      this.$emit('update:modelValue', value);
     },
     decrement() {
       if (this.value > 0) {
-        this.value -= 1; // уменьшаем значение на 1
-        this.onInput();
+        this.onValueChange(this.value - 1);
       }
     },
-    increment(event) {
-        if(this.value < this.maxValue){
-            this.value = +this.value + 1;
-        }else{
-          this.value = this.maxValue;
-        }
-        this.onInput();
+    increment() {
+      if (this.value < this.maxValue) {
+        this.onValueChange(this.value + 1);
+      }
     },
   },
-  mounted(){
-
-  }
 };
 </script>
 
 <style lang="sass" scoped>
-
-  .v-btn--icon .v-btn__content
-    transform: scale(1.25)
-
-  .button-icon
-    transform: scale(2) !important
-
+.numbers-input
+  max-width: 280px
 </style>

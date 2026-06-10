@@ -1,9 +1,15 @@
 <template lang="pug">
-    v-autocomplete(
+  .date-filter-root
+    v-autocomplete.filter-date-select(
         variant="outlined"
+        density="compact"
+        single-line
+        hide-details
+        clearable
+        prepend-inner-icon="mdi-calendar"
+        placeholder="Любая дата"
         :modelValue="selectedDateName"
         :items="dateNames"
-        label="Выберите дату"
         @update:modelValue="handleOptionChange"
     )
     NumberInput(
@@ -25,9 +31,12 @@
           :yearNames="yearNames"
           v-model:selectedMonth="selectedMonth"
           v-model:selectedQuarter="selectedQuarter"
+          v-model:selectedHalfYear="selectedHalfYear"
           v-model:selectedYear="selectedYear"
+          :halfYearNames="halfYearNames"
           @update:selectedMonth="update"
           @update:selectedQuarter="update"
+          @update:selectedHalfYear="update"
           @update:selectedYear="update"
     )
     DatePickerPanel(
@@ -40,6 +49,17 @@
         @update:selectedDay="update"
     )
 </template>
+
+<style lang="sass" scoped>
+.date-filter-root
+  display: flex
+  flex-direction: column
+  gap: 0.75rem
+  width: 100%
+
+.filter-date-select
+  width: 100%
+</style>
 
 <script>
 import DateFields from './DateFields.vue';
@@ -64,15 +84,17 @@ export default {
           const yearNames = Array.from({ length: 12 }, (_, index) => moment().year() + 1 - index);
           const monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
           const quarterNames = ["I", "II", "III", "IV"];
+          const halfYearNames = ["I", "II"];
           const selectedQuarter = quarterNames[Math.floor(today.month() / 3)];
+          const selectedHalfYear = halfYearNames[Math.floor(today.month() / 6)];
           const selectedMonth = monthNames[today.month()];
           const selectedYear = yearNames[1];
           const selectedDay = moment()._d;
           const selectedRange = [moment()._d, moment()._d];
 
         return {
-            dateNames: ["Любая дата", "Сегодня", "Вчера", "Текущая неделя", "Текущий месяц", "Текущий квартал", "Текущий год", "Прошлая неделя", "Прошлый месяц", "Прошлый квартал", "Прошлый год", "Последние 7 дней", "Последние 30 дней", "Последние 60 дней", "Последние 90 дней", "Последние N дней", "Месяц", "Квартал", "Год", "Точная дата", "Диапазон"],
-            selectedDateName: "Последние 30 дней",
+            dateNames: ["Любая дата", "Сегодня", "Вчера", "Текущая неделя", "Текущий месяц", "Текущий квартал", "Текущий год", "Прошлая неделя", "Прошлый месяц", "Прошлый квартал", "Прошлый год", "Последние 7 дней", "Последние 30 дней", "Последние 60 дней", "Последние 90 дней", "Последние N дней", "Месяц", "Квартал", "Полугодие", "Год", "Точная дата", "Диапазон"],
+            selectedDateName: "Любая дата",
             showInput: this.showInput,
             maxDaysAhead: maxDaysAhead,
             maxDaysAgo: maxDaysAgo,
@@ -81,10 +103,12 @@ export default {
             maxDate: maxDate,
             minDate: minDate,
             selectedQuarter: selectedQuarter,
+            selectedHalfYear: selectedHalfYear,
             selectedMonth: selectedMonth,
             selectedYear: selectedYear,
             monthNames: monthNames,
             quarterNames: quarterNames,
+            halfYearNames: halfYearNames,
             yearNames: yearNames,
             selectedDay: selectedDay,
             selectedRange: selectedRange,
@@ -102,10 +126,12 @@ export default {
             this.showInput[4] = selectedDateName === "Диапазон";
             this.showInput[5] = selectedDateName === "Точная дата";
             this.showInput[6] = selectedDateName === "Следующие N дней";
+            this.showInput[7] = selectedDateName === "Полугодие";
             this.update();
         },
         update(value){
             const quarterIndex = this.quarterNames.findIndex((item) => item === this.selectedQuarter);
+            const halfYearIndex = this.halfYearNames.findIndex((item) => item === this.selectedHalfYear);
             const startMonth = quarterIndex * 3 + 1;
             const monthIndex = this.monthNames.findIndex((item) => item === this.selectedMonth);
 
@@ -165,6 +191,15 @@ export default {
             case "Квартал":
                 this.selectedDate[0] = moment().year(this.selectedYear).quarter(quarterIndex + 1).startOf('quarter');
                 this.selectedDate[1] = moment().year(this.selectedYear).quarter(quarterIndex + 1).endOf('quarter');
+                break;
+            case "Полугодие":
+                if (halfYearIndex === 0) {
+                    this.selectedDate[0] = moment().year(this.selectedYear).month(0).startOf('month');
+                    this.selectedDate[1] = moment().year(this.selectedYear).month(5).endOf('month');
+                } else {
+                    this.selectedDate[0] = moment().year(this.selectedYear).month(6).startOf('month');
+                    this.selectedDate[1] = moment().year(this.selectedYear).month(11).endOf('month');
+                }
                 break;
             case "Год":
                 this.selectedDate[0] = moment().year(this.selectedYear).startOf('year');
@@ -240,13 +275,12 @@ export default {
             default:
                 break;
             }
-            console.log(this.selectedDate[0]);
+
             this.selectedDateIso[0] = this.selectedDate[0] ? this.selectedDate[0].subtract(12, 'hours').toISOString() : null;
             this.selectedDateIso[1] = this.selectedDate[1] ? this.selectedDate[1].add(12, 'hours').toISOString() : null;
             this.$emit('update:selectedDateIso[0]', this.selectedDateIso[0]);
             this.$emit('update:selectedDateIso[1]', this.selectedDateIso[1]);
             this.$emit('sendValue', this.selectedDateIso);
-            console.log(this.selectedDateIso[0]);
         },
     },
     mounted(){
