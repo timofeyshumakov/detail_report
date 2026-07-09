@@ -20,9 +20,19 @@
           <h1>Категории + активность</h1>
         </div>
         <div class="report-actions buttons">
-          <v-btn variant="flat" class="report-btn report-btn--outlined" prepend-icon="mdi-refresh" :loading="isLoading" @click="getData()">Обновить</v-btn>
-          <v-btn variant="flat" class="report-btn report-btn--outlined" prepend-icon="mdi-download" @click="noopAction">Экспорт</v-btn>
-          <v-btn variant="flat" class="report-btn report-btn--filled takeScreenshot" prepend-icon="mdi-content-save-outline" @click="takeScreenshot">Сохранить отчёт</v-btn>
+          <v-btn
+            variant="flat"
+            class="report-btn report-btn--outlined"
+            :loading="isLoading"
+            @click="getData()"
+          >
+            <template #prepend>
+              <v-icon icon="mdi-refresh" />
+            </template>
+            Обновить
+          </v-btn>
+          <v-btn variant="flat" class="report-btn report-btn--outlined" prepend-icon="mdi-tray-arrow-up" @click="noopAction">Экспорт</v-btn>
+          <v-btn variant="flat" class="report-btn report-btn--filled takeScreenshot" prepend-icon="mdi-camera-outline" @click="takeScreenshot">Сохранить отчёт</v-btn>
         </div>
       </header>
 
@@ -153,6 +163,39 @@
             </v-autocomplete>
           </div>
 
+          <div class="filter-item">
+            <span class="filter-label">Целевая аудитория</span>
+            <v-autocomplete
+              v-model="filters.selected.audience"
+              :items="filters.value.audience"
+              item-title="title"
+              item-value="id"
+              placeholder="Вся целевая аудитория"
+              density="compact"
+              single-line
+              hide-details
+              variant="outlined"
+              multiple
+              chips
+              clearable
+              prepend-inner-icon="mdi-account-multiple-outline"
+            >
+              <template v-slot:prepend-item>
+                <v-list-item>
+                  <v-list-item-content>
+                    <v-list-item-title>
+                      <v-checkbox
+                        label="Выбрать всю целевую аудиторию"
+                        v-model="filters.selectAll.audience"
+                        @change="() => toggleSelectAll('audience')"
+                      />
+                    </v-list-item-title>
+                  </v-list-item-content>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
+          </div>
+
           <div class="filter-item filter-item--period">
             <span class="filter-label">Дата</span>
             <DateFilter
@@ -168,57 +211,104 @@
       </section>
 
       <section class="summary-cards">
-        <article class="summary-card summary-card--green">
-          <v-icon icon="mdi-trending-up" />
-          <div>
-            <span>План выручки</span>
-            <strong>{{ formatCurrency(totalRow2.planProfit) }}</strong>
-          </div>
-        </article>
         <article class="summary-card summary-card--blue">
-          <v-icon icon="mdi-cash-multiple" />
+          <img :src="summaryTotalIcon" alt="Собрано" class="summary-card__icon" />
           <div>
             <span>Собрано</span>
             <strong>{{ formatCurrency(totalRow2.summ) }}</strong>
           </div>
         </article>
-        <article class="summary-card summary-card--purple">
-          <v-icon icon="mdi-handshake-outline" />
+        <article class="summary-card summary-card--green">
+          <img :src="summaryRevenuePlanIcon" alt="План выручки" class="summary-card__icon" />
           <div>
-            <span>Сделок за период</span>
-            <strong>{{ table1.length }}</strong>
+            <span>План выручки</span>
+            <strong>{{ formatCurrency(totalRow2.planProfit) }}</strong>
           </div>
         </article>
         <article class="summary-card summary-card--orange">
-          <v-icon icon="mdi-calendar-blank-outline" />
+          <img :src="summaryEventsIcon" alt="Мероприятий" class="summary-card__icon" />
           <div>
             <span>Мероприятий</span>
             <strong>{{ groupedEvents.length }}</strong>
           </div>
         </article>
+        <article class="summary-card summary-card--purple">
+          <img :src="summaryDealsIcon" alt="Сделок" class="summary-card__icon" />
+          <div>
+            <span>Сделок</span>
+            <strong>{{ table1Filtered.length }}</strong>
+          </div>
+        </article>
       </section>
 
       <section class="report-table-section">
-        <v-card class="report-table-card">
+        <v-card class="report-table-card report-table-card--sticky">
           <v-card-title class="report-table-title">
             Активность по мероприятию
           </v-card-title>
         <v-data-table
           :items="groupedEvents"
           :headers="headers2"
-          class="report-data-table"
+          class="report-data-table activity-report-table sticky-report-table"
+          disable-sort
           :items-per-page="-1"
         >
+          <template v-slot:item.event="{ item }">
+            <button
+              v-if="item.UF_CRM_1742797326"
+              type="button"
+              class="event-link"
+              :title="`Открыть сделки: ${item.event}`"
+              @click="openDealsByEvent(item.UF_CRM_1742797326, item.event)"
+            >
+              {{ item.event }}
+            </button>
+            <span v-else>{{ item.event }}</span>
+          </template>
+          <template v-slot:item.audience="{ item }">
+            {{ item.audience }}
+          </template>
           <template v-slot:item.managers="{ item }">
-            {{ item.managers }}
+            <div v-if="item.managerIds?.length" class="managers-cell">
+              <div
+                v-for="managerId in item.managerIds"
+                :key="managerId"
+                class="responsible-cell"
+              >
+                <v-avatar size="28" color="primary" variant="tonal">
+                  <img
+                    v-if="getUserPhoto(managerId)"
+                    :src="getUserPhoto(managerId)"
+                    :alt="getUserNameById(managerId)"
+                    class="avatar-image"
+                    loading="lazy"
+                    referrerpolicy="no-referrer"
+                    @error="markAvatarFailed(getUserPhoto(managerId))"
+                  />
+                  <span v-else class="avatar-initials">
+                    {{ getUserInitials(getUserNameById(managerId)) }}
+                  </span>
+                </v-avatar>
+                <span class="responsible-name" :title="getUserNameById(managerId)">
+                  {{ getUserNameById(managerId) }}
+                </span>
+              </div>
+            </div>
           </template>
           <template v-slot:item.start="{ item }">
             {{ item.start }}
           </template>
           <template v-slot:item.percent="{ item }">
-            <v-chip :color="percentMap(item.percent)" dark>
-              {{ item.percent }}
-            </v-chip>
+            <div class="percent-cell">
+              <span class="percent-cell__value">{{ formatPercent(item.percent) }}</span>
+              <div class="percent-cell__track">
+                <div
+                  class="percent-cell__fill"
+                  :class="getPercentBarClass(item.percent)"
+                  :style="{ width: `${visualPercent(item.percent)}%` }"
+                />
+              </div>
+            </div>
           </template>
           <template v-slot:item.summ="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.summ) }}
@@ -238,16 +328,53 @@
           <template v-slot:item.pd="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.pd) }}
           </template>
+          <template v-slot:item.actions="{ item }">
+            <div class="event-actions">
+              <v-menu
+                location="bottom end"
+                :offset="[0, 8]"
+                content-class="event-actions-menu-wrapper"
+              >
+                <template #activator="{ props }">
+                  <v-btn
+                    v-bind="props"
+                    variant="outlined"
+                    size="small"
+                    class="event-actions-trigger"
+                    :disabled="!item.UF_CRM_1742797326"
+                    aria-label="Действия"
+                  >
+                    <v-icon icon="mdi-dots-horizontal" />
+                  </v-btn>
+                </template>
+                <v-list class="event-actions-menu" density="compact" nav>
+                  <v-list-item
+                    class="event-actions-menu__item"
+                    prepend-icon="mdi-plus"
+                    title="Точечное добавление"
+                    @click="openPreciseDealForEvent(item)"
+                  />
+                  <v-list-item
+                    class="event-actions-menu__item"
+                    prepend-icon="mdi-account-multiple-outline"
+                    title="Массовая генерация"
+                    @click="openMassGenerationForEvent(item)"
+                  />
+                </v-list>
+              </v-menu>
+            </div>
+          </template>
           <template v-slot:tfoot>
             <tfoot>
               <tr class="v-data-table__footer-row">
-                <td colspan="4" class="text-left">Итого:</td>
+                <td colspan="5" class="report-table-footer-label">Итого:</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.summ) }}</td>
                 <td>{{ totalRow2.over > 0 ? new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.over) : '' }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.planProfit) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.pot) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.dog) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.pd) }}</td>
+                <td></td>
               </tr>
             </tfoot>
           </template>
@@ -256,15 +383,38 @@
       </section>
 
       <section class="report-table-section">
-        <v-card class="report-table-card">
+        <v-card class="report-table-card report-table-card--sticky">
           <v-card-title class="report-table-title">
             Компании по категориям
           </v-card-title>
         <v-data-table
-          :items="table1"
+          :items="table1Filtered"
           :headers="headers"
-          class="report-data-table report-data-table--paginated"
+          class="report-data-table report-data-table--paginated sticky-report-table"
+          disable-sort
         >
+          <template v-slot:item.ASSIGNED_BY_ID="{ item }">
+            <div v-if="item.user" class="responsible-cell">
+              <v-avatar size="28" color="primary" variant="tonal">
+                <img
+                  v-if="getUserPhoto(item.user)"
+                  :src="getUserPhoto(item.user)"
+                  :alt="item.ASSIGNED_BY_ID"
+                  class="avatar-image"
+                  loading="lazy"
+                  referrerpolicy="no-referrer"
+                  @error="markAvatarFailed(getUserPhoto(item.user))"
+                />
+                <span v-else class="avatar-initials">
+                  {{ getUserInitials(item.ASSIGNED_BY_ID) }}
+                </span>
+              </v-avatar>
+              <span class="responsible-name" :title="item.ASSIGNED_BY_ID">
+                {{ item.ASSIGNED_BY_ID }}
+              </span>
+            </div>
+            <span v-else>{{ item.ASSIGNED_BY_ID }}</span>
+          </template>
           <template v-slot:item.stage="{ item }">
             <v-chip v-if="item.stage" :color="getStatusColor(item.stage)" dark>
               {{ item.stage }}
@@ -291,12 +441,12 @@
           <template v-slot:tfoot>
             <tfoot>
               <tr class="v-data-table__footer-row">
-                <td colspan="5" class="text-left">Итого:</td>
-                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1745222013992) }}</td>
-                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1759821112055) }}</td>
-                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742972167794) }}</td>
-                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1742972105926) }}</td>
-                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow.UF_CRM_1744062581756) }}</td>
+                <td colspan="5" class="report-table-footer-label">Итого:</td>
+                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRowFiltered.UF_CRM_1745222013992) }}</td>
+                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRowFiltered.UF_CRM_1759821112055) }}</td>
+                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRowFiltered.UF_CRM_1742972167794) }}</td>
+                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRowFiltered.UF_CRM_1742972105926) }}</td>
+                <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRowFiltered.UF_CRM_1744062581756) }}</td>
                 <td></td>
               </tr>
             </tfoot>
@@ -359,26 +509,45 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <DealGeneratorDialog
+      v-model="dealGeneratorDialog.open"
+      :mode="dealGeneratorDialog.mode"
+      :event="dealGeneratorDialog.event"
+    />
   </div>
     </v-main>
   </v-app>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue';
-import { callApi } from '../functions/callApi';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { callApi, getListElements } from '../functions/callApi';
+import { useStickyReportTableHeaders } from '../composables/useStickyReportTableHeaders';
 import moment from 'moment';
 import html2canvas from 'html2canvas'; // подключаем библиотеку
 import DateFilter from '../components/TheForm/Date/Date.vue';
 import LoadingProgress from '../components/LoadingProgress.vue';
+import DealGeneratorDialog from '../components/DealGeneratorDialog.vue';
 import { useSnackbar } from '../composables/useSnackbar';
+import { buildCompanyTableDateFilter, formatDateFilterRange, isDealWithinDateRange, isEventWithinDateRange } from '../functions/dateFilter';
+import summaryTotalIcon from '../assets/summary/total.png';
+import summaryRevenuePlanIcon from '../assets/summary/revenue-plan.png';
+import summaryEventsIcon from '../assets/summary/events.png';
+import summaryDealsIcon from '../assets/summary/deals.png';
 
 const { snackbar, snackbarText, snackbarColor, showSnackbar } = useSnackbar();
+const {
+  mountStickyReportTableHeaders,
+  refreshStickyReportTableHeaders,
+  unmountStickyReportTableHeaders,
+} = useStickyReportTableHeaders();
 
 const selectedDateIso = ref([null, null]);
 const selectedDateName = ref('Любая дата');
 const dateFilterShowInput = ref([false, false, false, false, false, false, false, false]);
 const dateFilterKey = ref(0);
+const isInitialLoadDone = ref(false);
 
 function onDateFilterChange(value) {
   selectedDateIso.value = Array.isArray(value) ? [value[0] || null, value[1] || null] : [null, null];
@@ -399,6 +568,104 @@ function formatCurrency(value) {
 
 function noopAction() {}
 
+const EVENT_ENTITY_TYPE_ID = 1052
+const DEAL_EVENT_FIELD = 'UF_CRM_1742797326'
+const DEAL_CATEGORY_ID = 32
+
+function getBitrixPortalOrigin() {
+  const domain = globalThis.BX24?.getAuth?.()?.domain
+  if (domain) return `https://${domain}`
+  return window.location.origin
+}
+
+function openBitrixPath(path, { newTab = true } = {}) {
+  const url = path.startsWith('http') ? path : `${getBitrixPortalOrigin()}${path}`
+
+  if (newTab) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+    return
+  }
+
+  if (globalThis.BX24?.openPath) {
+    globalThis.BX24.openPath(path, true)
+    return
+  }
+
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function buildDealEventFilterValue(eventId) {
+  const id = Number(eventId)
+  if (!Number.isFinite(id)) {
+    return JSON.stringify({ [`DYNAMIC_${EVENT_ENTITY_TYPE_ID}`]: [String(eventId)] })
+  }
+  return JSON.stringify({ [`DYNAMIC_${EVENT_ENTITY_TYPE_ID}`]: [id] })
+}
+
+function resolveEventTitle(eventId, fallbackTitle = '') {
+  const title = String(fallbackTitle || '').trim()
+  if (title) return title
+  return findEventById(eventId)?.title || ''
+}
+
+function buildDealListEventFilterPath(eventId, eventTitle = '') {
+  const params = new URLSearchParams()
+  params.set('apply_filter', 'Y')
+  params.set(DEAL_EVENT_FIELD, buildDealEventFilterValue(eventId))
+
+  const title = resolveEventTitle(eventId, eventTitle)
+  if (title) {
+    params.set(`${DEAL_EVENT_FIELD}_label`, title)
+  }
+
+  return `/crm/deal/list/?${params.toString()}`
+}
+
+function openDealsByEvent(eventId, eventTitle = '') {
+  if (eventId == null || eventId === '') return
+
+  const path = buildDealListEventFilterPath(eventId, eventTitle)
+
+  if (globalThis.BX24?.openPath) {
+    globalThis.BX24.openPath(path, true)
+    return
+  }
+
+  openBitrixPath(path)
+}
+
+function resolveEventForDealGenerator(item) {
+  const eventId = item?.UF_CRM_1742797326
+  if (eventId == null || eventId === '') return null
+  return findEventById(eventId) || { id: eventId, title: item?.event || '' }
+}
+
+const dealGeneratorDialog = ref({
+  open: false,
+  mode: 'mass',
+  event: null,
+})
+
+function openDealGeneratorAction(item, mode) {
+  const event = resolveEventForDealGenerator(item)
+  if (!event) return
+
+  dealGeneratorDialog.value = {
+    open: true,
+    mode,
+    event,
+  }
+}
+
+function openPreciseDealForEvent(item) {
+  openDealGeneratorAction(item, 'manual')
+}
+
+function openMassGenerationForEvent(item) {
+  openDealGeneratorAction(item, 'mass')
+}
+
+
 function formatErrorMessage(error, fallback = 'Произошла ошибка') {
   if (error instanceof Error) return error.message || fallback
   if (typeof error === 'string') return error || fallback
@@ -416,7 +683,8 @@ const loadingMessage = ref('Инициализация…');
 const deals = ref([]);
 const deals2 = ref([]);
 const events = ref([]);
-const usersById = ref({});
+const userProfilesById = ref({});
+const failedAvatars = ref(new Set());
 
 const totalRow = ref({
   UF_CRM_1745222013992: 0,
@@ -550,11 +818,16 @@ const SALES_DEPARTMENTS = [
   { ID: '444', NAME: '3 группа', SORT: 200, PARENT: '5', UF_HEAD: '120' },
 ]
 
+const EVENT_AUDIENCE_FIELD = 'ufCrm38_1753365559'
+const AUDIENCE_LIST_ID = 216
+const audienceDirectory = ref([])
+
 const filters = ref({
 
 value: {
-  'assigned': '',
-  'events': '',
+  'assigned': [],
+  'events': [],
+  'audience': [],
   'departments': SALES_DEPARTMENTS,
   'category': [
     {id: "C32:UC_LXYCFO", title: "Потенциал - холодный"},
@@ -570,6 +843,7 @@ selected: {
   assigned: [],
   events: [],
   category: [],
+  audience: [],
 },
 
 selectAll: {
@@ -577,6 +851,7 @@ selectAll: {
   'assigned': false,
   'events': false,
   'category': false,
+  'audience': false,
 }
 });
 function disableFilters(){
@@ -594,7 +869,7 @@ function disableFilters(){
 const headers = ref([
   { title: "Мероприятие", key: "event", align: "start"},
   { title: "Компания", key: "UF_CRM_1744890618774", align: "center"},
-  { title: "Ответственный", key: "ASSIGNED_BY_ID", align: "center"},
+  { title: "Ответственный", key: "ASSIGNED_BY_ID", align: "start"},
   { title: "Статус", key: "status", align: "center"},
   { title: "Категория", key: "stage", align: "center"},
   { title: "Предварительная", key: "UF_CRM_1745222013992", align: "center"},
@@ -608,8 +883,9 @@ const headers = ref([
 
 const headers2 = ref([
   { title: "Мероприятие", key: "event", align: "start"},
-  { title: "Ответственные менеджеры", key: "managers", align: "center"},
-  { title: "Дата начала мероприятия", key: "start", align: "center"},
+  { title: "Целевая аудитория", key: "audience", align: "start"},
+  { title: "Ответственные менеджеры", key: "managers", align: "start"},
+  { title: "Дата", key: "start", align: "center"},
   { title: "% Выполнения", key: "percent", align: "center"},
   { title: "Собрано", key: "summ", align: "center"},
   { title: "Собрано сверху", key: "over", align: "center"},
@@ -617,6 +893,7 @@ const headers2 = ref([
   { title: "Потенциал", key: "pot", align: "center"},
   { title: "Договоренности", key: "dog", align: "center"},
   { title: "Сумма П/Д", key: "pd", align: "center"},
+  { title: "Действия", key: "actions", align: "start", sortable: false },
 ]);
 
 
@@ -696,31 +973,28 @@ const filteredAssignedOptions = computed(() => {
 
   return users
 })
+
+const filteredDealsForEvents = computed(() => {
+  const selectedCategory = new Set(asArray(filters.value.selected.category).map(String))
+  const selectedAssigned = new Set(asArray(filters.value.selected.assigned).map(String))
+  const selectedEvents = new Set(asArray(filters.value.selected.events).map(String))
+
+  return deals.value.filter((deal) => {
+    if (selectedCategory.size && !selectedCategory.has(String(deal.STAGE_ID))) return false
+    if (selectedAssigned.size && !selectedAssigned.has(String(deal.ASSIGNED_BY_ID))) return false
+    if (selectedEvents.size && !selectedEvents.has(String(deal.UF_CRM_1742797326))) return false
+    return true
+  })
+})
 const groupedEvents = computed(() => {
   const groups = {};
   
-  deals.value.forEach(deal => {
-    const event = events.value.find(e => e.id == deal.UF_CRM_1742797326);
-
-    const planProfit = event && event.ufCrm38_1745221903440 ? parseFloat(event.ufCrm38_1745221903440.replace('|RUB', "")) : 0;
+  filteredDealsForEvents.value.forEach(deal => {
+    const event = findEventById(deal.UF_CRM_1742797326);
+    if (!eventPassesFilters(event)) return;
     
     if (!groups[deal.UF_CRM_1742797326]) {
-      groups[deal.UF_CRM_1742797326] = {
-        UF_CRM_1742797326: deal.UF_CRM_1742797326,
-        percent: event && event.ufCrm38_1750948951651 ? Math.round(event.ufCrm38_1750948951651 * 100) / 100 : 0,
-        start: formatEventDates(event),
-        summ: 0,
-        pot: 0,
-        planProfit: planProfit,
-        over: -planProfit, // Инициализируем отрицательным значением плана
-        dog: 0,
-        pd: 0,
-        UF_CRM_1744062581756: deal.UF_CRM_1744062581756,
-        STAGE_ID: deal.STAGE_ID,
-        event: event && event.title ? event.title : '',
-        managers: event ? formatEventManagers(event.ufCrm38_1753082810) : '',
-        UF_CRM_1745222013992: deal.UF_CRM_1745222013992,
-      };
+      groups[deal.UF_CRM_1742797326] = createEventGroupRow(event, deal);
     }
     
     const summDeal = parseFloat(deal.UF_CRM_1744062581756);
@@ -750,11 +1024,29 @@ const groupedEvents = computed(() => {
     }
   });
 
+  getFilteredEventIds().forEach((eventId) => {
+    if (groups[eventId]) return
+
+    const event = findEventById(eventId)
+    if (!event || !eventPassesFilters(event)) return
+
+    groups[eventId] = createEventGroupRow(event)
+  })
+
+  const result = Object.values(groups).filter((row) => {
+    const event = findEventById(row.UF_CRM_1742797326)
+    return eventPassesFilters(event)
+  })
+
   // После обработки всех сделок, корректируем значение over для каждого мероприятия
-  for (let key in groups) {
-    const innerObj = groups[key];
-    
-    // РАСЧЕТ СОБРАНО СВЕРХУ: План выручки - Собранная сумма
+  for (const innerObj of result) {
+    innerObj.percent = resolveEventPercent(
+      findEventById(innerObj.UF_CRM_1742797326),
+      innerObj.summ,
+      innerObj.planProfit,
+    )
+
+    // РАСЧЕТ СОБРАНО СВЕРХУ: Собранная сумма - План выручки
     const overValue = parseFloat(innerObj.summ) - parseFloat(innerObj.planProfit);
     
     // Проверка значения "over" - показываем только если > 0
@@ -765,7 +1057,7 @@ const groupedEvents = computed(() => {
     }
   }
 
-  return Object.values(groups).sort((a, b) => {
+  return result.sort((a, b) => {
     const aHasSumm = parseFloat(a.summ) > 0
     const bHasSumm = parseFloat(b.summ) > 0
     if (aHasSumm === bHasSumm) return 0
@@ -774,6 +1066,47 @@ const groupedEvents = computed(() => {
 });
 
 const table1 = ref([]);
+const table1Filtered = computed(() => {
+  const selectedCategory = new Set(asArray(filters.value.selected.category).map(String))
+  const selectedAssigned = new Set(asArray(filters.value.selected.assigned).map(String))
+  const selectedEvents = new Set(asArray(filters.value.selected.events).map(String))
+  const selectedDepartments = asArray(filters.value.selected.departments).map(String)
+  const [dateFrom, dateTo] = formatDateFilterRange(selectedDateIso.value)
+
+  return table1.value.filter((row) => {
+    if (selectedCategory.size && !selectedCategory.has(String(row.STAGE_ID))) return false
+    if (selectedAssigned.size && !selectedAssigned.has(String(row.user))) return false
+    if (selectedEvents.size && !selectedEvents.has(String(row.UF_CRM_1742797326))) return false
+
+    const event = findEventById(row.UF_CRM_1742797326)
+    if (!eventMatchesAudienceFilter(event)) return false
+
+    if (selectedDepartments.length) {
+      const assignee = asArray(filters.value.value.assigned).find((user) => String(user.ID) === String(row.user))
+      if (!assignee || !hasAnyDepartmentMatch(assignee.departmentIds || [], selectedDepartments)) return false
+    }
+
+    if (!isDealWithinDateRange(row.UF_CRM_1744096783472, dateFrom, dateTo)) return false
+    return true
+  })
+})
+const totalRowFiltered = computed(() => {
+  const row = {
+    UF_CRM_1745222013992: 0,
+    UF_CRM_1759821112055: 0,
+    UF_CRM_1742972167794: 0,
+    UF_CRM_1742972105926: 0,
+    UF_CRM_1744062581756: 0,
+  }
+  table1Filtered.value.forEach((deal) => {
+    row.UF_CRM_1745222013992 += +deal.UF_CRM_1745222013992 || 0
+    row.UF_CRM_1759821112055 += +deal.UF_CRM_1759821112055 || 0
+    row.UF_CRM_1742972167794 += +deal.UF_CRM_1742972167794 || 0
+    row.UF_CRM_1742972105926 += +deal.UF_CRM_1742972105926 || 0
+    row.UF_CRM_1744062581756 += +deal.UF_CRM_1744062581756 || 0
+  })
+  return row
+})
 const totalRow2 = computed(() => {
   if(groupedEvents.value !== undefined){
     const row = {
@@ -812,6 +1145,267 @@ const totalRow2 = computed(() => {
 });
 
 
+function resolveUserPhotoUrl(photo) {
+  const rawPhoto =
+    typeof photo === 'string'
+      ? photo
+      : photo && typeof photo === 'object'
+        ? String(photo.src || photo.url || photo.URL || '')
+        : '';
+
+  if (!rawPhoto) return '';
+  if (rawPhoto.startsWith('http')) return rawPhoto;
+  if (rawPhoto.startsWith('//')) return `https:${rawPhoto}`;
+
+  const domain =
+    globalThis.BX24?.getAuth?.()?.domain ||
+    window.location.hostname;
+
+  return `https://${domain}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
+}
+
+function markAvatarFailed(url) {
+  if (!url) return;
+  failedAvatars.value = new Set([...failedAvatars.value, url]);
+}
+
+function getUserInitials(name) {
+  const parts = String(name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return '?';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function registerUserProfile(user) {
+  if (!user?.ID) return;
+
+  const name = displayFullName(user.LAST_NAME, user.NAME, user.SECOND_NAME);
+  userProfilesById.value[String(user.ID)] = {
+    name,
+    photo: resolveUserPhotoUrl(user.PERSONAL_PHOTO),
+  };
+}
+
+function getUserNameById(userId) {
+  if (!userId) return '';
+  return userProfilesById.value[String(userId)]?.name || '';
+}
+
+function getUserPhoto(userId) {
+  if (!userId) return '';
+  const url = userProfilesById.value[String(userId)]?.photo || '';
+  if (!url || failedAvatars.value.has(url)) return '';
+  return url;
+}
+
+function getEventManagerIds(raw) {
+  if (raw == null || raw === '') return [];
+  const ids = Array.isArray(raw) ? raw : [raw];
+  return ids
+    .map((id) => String(id))
+    .filter(Boolean);
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value
+  if (value == null || value === '') return []
+  return [value]
+}
+
+function getFilteredEventIds() {
+  const selectedEvents = asArray(filters.value.selected.events)
+  const source = selectedEvents.length === 0
+    ? asArray(filters.value.value.events)
+    : selectedEvents.map((id) => ({ id }))
+
+  return source
+    .map((item) => {
+      const eventId = String(item.id ?? item)
+      const event = findEventById(eventId)
+      return event && eventPassesFilters(event) ? eventId : null
+    })
+    .filter(Boolean)
+}
+
+function findEventById(eventId) {
+  if (eventId == null || eventId === '') return null
+  const id = String(eventId)
+  return events.value.find((item) => String(item.id) === id)
+    || asArray(filters.value.value.events).find((item) => String(item.id) === id)
+    || null
+}
+
+function getSelectedDateRange() {
+  return formatDateFilterRange(selectedDateIso.value)
+}
+
+function eventMatchesDateFilter(event) {
+  const [from, to] = getSelectedDateRange()
+  return isEventWithinDateRange(event?.ufCrm38_1745307580193, from, to)
+}
+
+function eventMatchesEventsFilter(event) {
+  const selectedEvents = asArray(filters.value.selected.events)
+  if (!selectedEvents.length) return true
+  const selectedSet = new Set(selectedEvents.map(String))
+  return selectedSet.has(String(event?.id))
+}
+
+function eventMatchesDepartmentFilter(event) {
+  const departmentIds = filters.value.selected.departments
+  if (!departmentIds.length) return true
+
+  const managerIds = getEventManagerIds(event?.ufCrm38_1753082810)
+  if (!managerIds.length) return false
+
+  const assigned = asArray(filters.value.value.assigned)
+  return managerIds.some((managerId) => {
+    const user = assigned.find((item) => String(item.ID) === managerId)
+    return user && hasAnyDepartmentMatch(user.departmentIds || [], departmentIds)
+  })
+}
+
+function eventMatchesAssignedFilter(event) {
+  const selectedAssigned = asArray(filters.value.selected.assigned)
+  if (!selectedAssigned.length) return true
+
+  const selectedSet = new Set(selectedAssigned.map(String))
+  const managerIds = getEventManagerIds(event?.ufCrm38_1753082810)
+  return managerIds.some((id) => selectedSet.has(id))
+}
+
+function getEventAudienceRaw(event) {
+  return event?.[EVENT_AUDIENCE_FIELD]
+    ?? event?.UF_CRM_38_1753365559
+    ?? event?.ufCrm38_1753365559
+}
+
+function normalizeAudienceValues(raw) {
+  if (raw == null || raw === '') return []
+
+  const items = Array.isArray(raw) ? raw : [raw]
+  return items
+    .map((item) => {
+      if (typeof item === 'object' && item != null) {
+        return String(item.id ?? item.ID ?? item.value ?? item.VALUE ?? item.title ?? item.TITLE ?? '')
+      }
+      return String(item)
+    })
+    .filter(Boolean)
+}
+
+function buildAudienceOptions(eventItems) {
+  const map = new Map()
+  const directoryTitleMap = new Map(
+    asArray(audienceDirectory.value).map((item) => [String(item.ID), String(item.NAME || item.TITLE || item.ID)])
+  )
+
+  asArray(eventItems).forEach((event) => {
+    const raw = getEventAudienceRaw(event)
+    if (raw == null || raw === '') return
+
+    const items = Array.isArray(raw) ? raw : [raw]
+    items.forEach((item) => {
+      if (typeof item === 'object' && item != null) {
+        const id = String(item.id ?? item.ID ?? item.value ?? item.VALUE ?? item.title ?? item.TITLE ?? '')
+        const title = String(item.title ?? item.TITLE ?? directoryTitleMap.get(id) ?? item.value ?? item.VALUE ?? id)
+        if (id) map.set(id, { id, title })
+        return
+      }
+
+      const value = String(item)
+      if (value) map.set(value, { id: value, title: directoryTitleMap.get(value) || value })
+    })
+  })
+
+  return [...map.values()].sort((a, b) => a.title.localeCompare(b.title, 'ru'))
+}
+
+function eventMatchesAudienceFilter(event) {
+  const selectedAudience = asArray(filters.value.selected.audience)
+  if (!selectedAudience.length) return true
+
+  const selectedSet = new Set(selectedAudience.map(String))
+  const values = normalizeAudienceValues(getEventAudienceRaw(event))
+  return values.some((value) => selectedSet.has(value))
+}
+
+function eventPassesFilters(event) {
+  if (!event) return false
+  if (!eventMatchesEventsFilter(event)) return false
+  if (!eventMatchesDateFilter(event)) return false
+  if (!eventMatchesDepartmentFilter(event)) return false
+  if (!eventMatchesAssignedFilter(event)) return false
+  if (!eventMatchesAudienceFilter(event)) return false
+  return true
+}
+
+function parseMoneyField(raw) {
+  if (raw == null || raw === '') return 0
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0
+  if (typeof raw === 'object') {
+    if (raw.amount != null) return parseMoneyField(raw.amount)
+    if (raw.value != null) return parseMoneyField(raw.value)
+  }
+
+  const normalized = String(raw).replace(/\|RUB$/i, '').replace(/\s/g, '').replace(',', '.')
+  const value = parseFloat(normalized)
+  return Number.isFinite(value) ? value : 0
+}
+
+function resolveEventPercent(event, summ, planProfit) {
+  const plan = parseFloat(planProfit) || 0
+  const collected = parseFloat(summ) || 0
+
+  if (plan > 0) {
+    return Math.round((collected / plan) * 10000) / 100
+  }
+
+  const raw = event?.ufCrm38_1750948951651
+  return raw ? Math.round(parseFloat(String(raw)) * 100) / 100 : 0
+}
+
+function formatEventAudience(event) {
+  const values = normalizeAudienceValues(getEventAudienceRaw(event))
+  if (!values.length) return ''
+
+  const options = asArray(filters.value.value.audience)
+  const directoryTitleMap = new Map(
+    asArray(audienceDirectory.value).map((item) => [String(item.ID), String(item.NAME || item.TITLE || item.ID)])
+  )
+  return values
+    .map((id) => options.find((item) => String(item.id) === id)?.title || directoryTitleMap.get(id) || id)
+    .filter(Boolean)
+    .join(', ')
+}
+
+function createEventGroupRow(event, deal = null) {
+  const planProfit = parseMoneyField(event?.ufCrm38_1745221903440)
+
+  return {
+    UF_CRM_1742797326: event?.id ?? deal?.UF_CRM_1742797326,
+    percent: resolveEventPercent(event, 0, planProfit),
+    start: formatEventDates(event),
+    summ: 0,
+    pot: 0,
+    planProfit,
+    over: '',
+    dog: 0,
+    pd: 0,
+    UF_CRM_1744062581756: deal?.UF_CRM_1744062581756,
+    STAGE_ID: deal?.STAGE_ID,
+    event: event?.title || '',
+    audience: event ? formatEventAudience(event) : '',
+    managers: event ? formatEventManagers(event.ufCrm38_1753082810) : '',
+    managerIds: event ? getEventManagerIds(event.ufCrm38_1753082810) : [],
+    UF_CRM_1745222013992: deal?.UF_CRM_1745222013992,
+  }
+}
+
 function formatEventDates(event) {
   const startRaw = event?.ufCrm38_1745307580193
   const endRaw = event?.ufCrm38_1751875905992
@@ -822,15 +1416,6 @@ function formatEventDates(event) {
   return start === end ? start : `${start} - ${end}`
 }
 
-function registerUserName(user) {
-  if (!user?.ID) return
-  const parts = []
-  if (user.NAME) parts.push(user.NAME)
-  if (user.SECOND_NAME) parts.push(user.SECOND_NAME)
-  if (user.LAST_NAME) parts.push(user.LAST_NAME)
-  usersById.value[String(user.ID)] = parts.join(' ')
-}
-
 function formatEventManagers(raw) {
   if (raw == null || raw === '') return ''
   const ids = Array.isArray(raw) ? raw : [raw]
@@ -838,7 +1423,7 @@ function formatEventManagers(raw) {
   return ids
     .map((id) => {
       const key = String(id)
-      if (usersById.value[key]) return usersById.value[key]
+      if (userProfilesById.value[key]?.name) return userProfilesById.value[key].name
       return assigned.find((u) => String(u.ID) === key)?.FULL_NAME || ''
     })
     .filter(Boolean)
@@ -856,18 +1441,18 @@ async function loadEventManagerUsers(eventItems) {
     })
   })
 
-  const missingIds = [...managerIds].filter((id) => !usersById.value[id])
+  const missingIds = [...managerIds].filter((id) => !userProfilesById.value[id])
   if (!missingIds.length) return
 
   const users = await callApi(
     'user.get',
     { ID: missingIds },
-    ['ID', 'NAME', 'SECOND_NAME', 'LAST_NAME'],
+    ['ID', 'NAME', 'SECOND_NAME', 'LAST_NAME', 'PERSONAL_PHOTO'],
     null,
     0,
     0,
   )
-  ;(Array.isArray(users) ? users : []).forEach(registerUserName)
+  ;(Array.isArray(users) ? users : []).forEach(registerUserProfile)
 }
 
 function displayFullName(firstName, middleName, lastName) {
@@ -919,15 +1504,30 @@ function stageMap(stage){
     return stageName;
 }
 
-function percentMap(percent){
-  if (percent <= 25) return 'red lighten-1';       // ярко-красный
-      if (percent <= 49) return 'red darken-2';        // темно-красный
-      if (percent <= 70) return 'amber';               // желтый
-      if (percent <= 99) return 'light-green';         // зеленый
-      return 'green darken-1'; 
+function parsePercent(percent) {
+  const value = Number(percent);
+  return Number.isFinite(value) ? Math.max(0, value) : 0;
+}
+
+function visualPercent(percent) {
+  return Math.min(100, parsePercent(percent));
+}
+
+function formatPercent(percent) {
+  const value = parsePercent(percent);
+  return `${Number.isInteger(value) ? value : Math.round(value)}%`;
+}
+
+function getPercentBarClass(percent) {
+  const value = visualPercent(percent);
+  if (value <= 40) return 'percent-cell__fill--red';
+  if (value <= 74) return 'percent-cell__fill--orange';
+  return 'percent-cell__fill--green';
 }
 
 onMounted(async () => {
+  mountStickyReportTableHeaders();
+
   try {
     loadingMessage.value = 'Загрузка списка мероприятий…';
     loadingProgress.value = 12;
@@ -939,7 +1539,7 @@ onMounted(async () => {
     
     loadingMessage.value = 'Загрузка пользователей…';
     loadingProgress.value = 22;
-    const assigned = await callApi("user.get", {}, ["NAME", "SECOND_NAME", "LAST_NAME", "ID", "UF_DEPARTMENT"], null, 0, 0);
+    const assigned = await callApi("user.get", {}, ["NAME", "SECOND_NAME", "LAST_NAME", "ID", "UF_DEPARTMENT", "PERSONAL_PHOTO"], null, 0, 0);
 
     filters.value.value.assigned = assigned.map((user) => {
       const parts = []
@@ -954,18 +1554,24 @@ onMounted(async () => {
           ? user.UF_DEPARTMENT.map((id) => String(id))
           : (user.UF_DEPARTMENT ? [String(user.UF_DEPARTMENT)] : []),
       }
-      registerUserName(mapped)
+      registerUserProfile(mapped)
       return mapped
     })
     
     loadingMessage.value = 'Загрузка отчёта по сделкам…';
     loadingProgress.value = 28;
     await getData();
+    isInitialLoadDone.value = true;
+    refreshStickyReportTableHeaders();
   } catch (error) {
     console.error('Ошибка при инициализации отчёта:', error);
     showError(error, 'Ошибка при инициализации отчёта');
     finishLoading();
   }
+});
+
+onUnmounted(() => {
+  unmountStickyReportTableHeaders();
 });
 
 watch(
@@ -1014,6 +1620,7 @@ watch(
   },
   { deep: true }
 )
+
 const getData = async () => {
   isLoading.value = true;
   loadingProgress.value = 0;
@@ -1041,22 +1648,24 @@ const getData = async () => {
     ? filters.value.value.category.map(item => item.id) 
     : filters.value.selected.category;
   
-  const filterEvents = filters.value.selected.events.length === 0 
-    ? filters.value.value.events.map(item => item.id) 
-    : filters.value.selected.events;
+  const filterEvents = asArray(filters.value.selected.events).length === 0 
+    ? asArray(filters.value.value.events).map(item => item.id) 
+    : asArray(filters.value.selected.events);
 
-  // Подготовка дат
-  let dates = [];
-  if (selectedDateIso.value[0]) {
-    dates[0] = moment(selectedDateIso.value[0]).format('YYYY-MM-DD');
-  } else {
-    dates[0] = null;
-  }
-  if (selectedDateIso.value[1]) {
-    dates[1] = moment(selectedDateIso.value[1]).format('YYYY-MM-DD');
-  } else {
-    dates[1] = null;
-  }
+  const [dateFrom, dateTo] = formatDateFilterRange(selectedDateIso.value);
+
+  const dealFiltersForCompanies = {
+    ...buildCompanyTableDateFilter(selectedDateIso.value),
+    "STAGE_ID": filterCategory,
+    "ASSIGNED_BY_ID": filterAssigned,
+    "UF_CRM_1742797326": filterEvents,
+  };
+
+  const dealFiltersForEvents = {
+    "STAGE_ID": filterCategory,
+    "ASSIGNED_BY_ID": filterAssigned,
+    "UF_CRM_1742797326": filterEvents,
+  };
 
   loadingProgress.value = Math.max(loadingProgress.value, 38);
   loadingMessage.value = 'Загрузка сделок для сводной таблицы…';
@@ -1076,13 +1685,7 @@ const getData = async () => {
         },
         body: JSON.stringify({
           "method": "crm.deal.list",
-          "filters": {
-            ">DATE_CREATE": dates[0],
-            "<DATE_CREATE": dates[1],
-            "STAGE_ID": filterCategory,
-            "ASSIGNED_BY_ID": filterAssigned,
-            "UF_CRM_1742797326": filterEvents,
-          },
+          "filters": dealFiltersForEvents,
           "select": [
             "UF_CRM_1744096783472", 
             'UF_CRM_1742797326',
@@ -1140,13 +1743,7 @@ const getData = async () => {
         },
         body: JSON.stringify({
           "method": "crm.deal.list",
-          "filters": {
-            ">DATE_CREATE": dates[0],
-            "<DATE_CREATE": dates[1],
-            "STAGE_ID": filterCategory,
-            "ASSIGNED_BY_ID": filterAssigned,
-            "UF_CRM_1742797326": filterEvents,
-          },
+          "filters": dealFiltersForCompanies,
           "select": [
             "UF_CRM_1744096783472", 
             'UF_CRM_1742797326',
@@ -1195,7 +1792,9 @@ const getData = async () => {
   const isoDate = date.toISOString();
   
   events.value = await callApi('crm.item.list', {}, null, 1052, 0, 0) || []
+  audienceDirectory.value = await getListElements(AUDIENCE_LIST_ID, {}, ['ID', 'NAME']) || []
   await loadEventManagerUsers(events.value)
+  filters.value.value.audience = buildAudienceOptions(events.value)
 
   loadingProgress.value = Math.max(loadingProgress.value, 82);
 
@@ -1205,7 +1804,8 @@ const getData = async () => {
   loadingMessage.value = 'Загрузка данных ответственных…';
 
   const usersFind = Array.from(new Set(dealsLocal.map(deal => deal.ASSIGNED_BY_ID)));
-  const users = await callApi("user.get", { "ID": usersFind }, []);
+  const users = await callApi("user.get", { "ID": usersFind }, ["ID", "NAME", "SECOND_NAME", "LAST_NAME", "PERSONAL_PHOTO"]);
+  ;(Array.isArray(users) ? users : []).forEach(registerUserProfile);
 
   loadingProgress.value = Math.max(loadingProgress.value, 94);
   loadingMessage.value = 'Обработка таблицы и расчёт итогов…';
@@ -1243,6 +1843,7 @@ const getData = async () => {
   deals.value = JSON.parse(JSON.stringify(dealsLocal2));
 
   finishLoading();
+  refreshStickyReportTableHeaders();
   } catch (error) {
     console.error('Ошибка при загрузке отчёта:', error);
     showError(error, 'Ошибка при загрузке отчёта');
@@ -1264,12 +1865,13 @@ const getData = async () => {
     display: flex
     flex-direction: column
     gap: 1rem
-    padding-right: 0.75rem
+    padding: 0.75rem
     max-width: 100%
-    overflow-x: hidden
+    overflow-x: clip
+    overflow-y: visible
     box-sizing: border-box
 
-  .report-page .v-data-table
+  .report-page .v-data-table:not(.sticky-report-table)
     width: 100%
     max-width: 100%
 
@@ -1282,8 +1884,17 @@ const getData = async () => {
     gap: 0
 
   .report-table-card
+    display: flex
+    flex-direction: column
+    gap: 0
     overflow: hidden
     padding: 1rem
+
+  .report-table-card--sticky
+    overflow: visible !important
+
+  .v-card.report-table-card--sticky
+    overflow: visible !important
 
   .report-table-title
     font-size: 1.25rem
@@ -1296,57 +1907,69 @@ const getData = async () => {
 
   .report-data-table
     padding: 0
-
-    .v-data-table__th
-      background: #f8f9fa !important
-      color: #1e293b !important
-      font-weight: 700
-      font-size: 0.875rem
-      border-top: none !important
-      border-left: none !important
-      border-right: none !important
-      border-bottom: 1px solid #e2e8f0 !important
+    margin-bottom: 1rem
 
     .v-data-table-header__content
-      color: #1e293b !important
+      align-items: center
+      justify-content: center
+      color: #334155 !important
 
-    .v-data-table__th:first-child .v-data-table-header__content
-      justify-content: flex-start
+    thead th.v-data-table__th
+      background: #f8fafc !important
+      color: #334155 !important
+      font-weight: 600 !important
+      font-size: 1rem
+      text-align: center !important
+      border: 1px solid rgba(0, 0, 0, 0.12) !important
+      border-color: rgba(226, 232, 240, 0.95) !important
 
-    .v-data-table__td
-      border-left: none !important
-      border-right: none !important
-      border-color: #e2e8f0 !important
+      span
+        font-weight: 600
+        font-size: 1rem
+
+    thead th.v-data-table__th .v-data-table-header__content
+      justify-content: center !important
+
+    .v-data-table-header__sort-icon
+      display: none !important
+
+    tbody .v-data-table__td
+      border: 1px solid rgba(0, 0, 0, 0.12) !important
+      border-color: rgba(226, 232, 240, 0.95) !important
       color: #334155
       font-size: 0.875rem
 
+    tbody .v-data-table__tr:nth-child(even) .v-data-table__td,
     tbody .v-data-table__tr:nth-child(odd) .v-data-table__td
       background-color: #ffffff
 
-    tbody .v-data-table__tr:nth-child(even) .v-data-table__td
-      background-color: #f8f9fa
-
     tbody .v-data-table__tr:hover .v-data-table__td
-      background-color: #f1f5f9
+      background-color: #f8fafc
 
-    .v-data-table__th:first-child,
-    .v-data-table__td:first-child
-      text-align: left
+    tbody .v-data-table__td:first-child
+      text-align: left !important
 
-    .v-data-table__th:not(:first-child),
-    .v-data-table__td:not(:first-child)
-      text-align: center
+    tbody .v-data-table__td:not(:first-child)
+      text-align: center !important
 
     tfoot .v-data-table__footer-row td
-      background: #f8f9fa !important
-      font-weight: 700
-      color: #1e293b
-      border-top: 1px solid #e2e8f0
+      background: #f8fafc !important
+      font-weight: 600 !important
+      color: #334155 !important
+      text-align: center !important
+      border: 1px solid rgba(0, 0, 0, 0.12) !important
+      border-color: rgba(226, 232, 240, 0.95) !important
 
-    .v-table
+    tfoot .v-data-table__footer-row td.report-table-footer-label
+      text-align: left !important
+
+    &.v-table
       border: none
-      border-radius: 0.5rem
+      border-radius: 0
       overflow: hidden
+
+    &.sticky-report-table.v-table
+      overflow: visible
 
     .v-data-table-footer
       display: none
@@ -1355,6 +1978,229 @@ const getData = async () => {
     .v-data-table-footer
       display: flex
       padding-top: 0.5rem
+      justify-content: center
+
+    .v-data-table-footer__items-per-page .v-field__field
+      overflow: visible
+
+  .report-data-table.sticky-report-table
+    max-width: 100%
+
+    &.v-table
+      overflow: visible
+      max-width: 100%
+
+    .v-table__wrapper
+      overflow-x: auto
+      max-width: 100%
+
+  .sticky-report-table-header
+    position: fixed
+    z-index: 20
+    display: none
+    overflow: hidden
+    pointer-events: none
+    background: #f8fafc
+    box-shadow: 0 1px 0 rgba(226, 232, 240, 0.95)
+
+    .v-data-table-header__sort-icon,
+    .v-icon
+      display: none !important
+
+    table
+      margin: 0
+
+  .report-data-table.activity-report-table.sticky-report-table
+    thead th.v-data-table__th,
+    tbody .v-data-table__td,
+    tfoot .v-data-table__footer-row td
+      padding: 0.50rem !important
+
+    thead th.v-data-table__th .v-data-table-header__content
+      padding: 0 !important
+      min-height: 0
+
+    .percent-cell
+      padding: 0
+      gap: 0.2rem
+      min-width: 0
+
+    .managers-cell
+      gap: 0.2rem
+
+    .responsible-cell
+      gap: 0.35rem
+
+  .sticky-report-table-header.activity-report-table-header
+    thead th.v-data-table__th
+      padding: 0.50rem !important
+
+    .v-data-table-header__content
+      padding: 0 !important
+      min-height: 0
+
+  .percent-cell
+    display: flex
+    flex-direction: column
+    align-items: center
+    gap: 0.35rem
+    width: 100%
+    min-width: 4.5rem
+    padding: 0.15rem 0.25rem
+
+  .percent-cell__value
+    font-weight: 700
+    font-size: 0.875rem
+    color: #1f2937
+    line-height: 1.2
+
+  .percent-cell__track
+    width: 100%
+    height: 8px
+    overflow: hidden
+    border-radius: 999px
+    background: #eef1f5
+
+  .percent-cell__fill
+    height: 100%
+    max-width: 100%
+    border-radius: inherit
+    transition: width 0.25s ease
+
+    &--red
+      background: #ef5350
+
+    &--orange
+      background: #fb8c00
+
+    &--green
+      background: #43a047
+
+  .managers-cell
+    display: flex
+    flex-direction: column
+    gap: 0.35rem
+    align-items: flex-start
+    width: 100%
+
+  .responsible-cell
+    display: flex
+    align-items: center
+    gap: 0.55rem
+    min-width: 0
+    max-width: 100%
+
+    .v-avatar
+      flex-shrink: 0
+      align-self: center
+
+  .responsible-name
+    flex: 1
+    min-width: 0
+    color: #1f2937
+    white-space: normal
+    overflow-wrap: break-word
+    word-break: normal
+    line-height: 1.35
+
+  .event-link
+    background: none
+    border: none
+    padding: 0
+    color: #2563eb
+    text-decoration: underline
+    cursor: pointer
+    text-align: left
+    font: inherit
+    line-height: 1.35
+    white-space: normal
+
+    &:hover
+      color: #1d4ed8
+
+  .event-actions
+    display: flex
+    justify-content: center
+    align-items: center
+
+  .event-actions-trigger
+    min-width: 32px !important
+    width: 32px
+    height: 32px
+    padding: 0 !important
+    border-radius: 8px !important
+    border: 1px solid #d1d5db !important
+    background: #ffffff !important
+    color: #6b7280 !important
+    box-shadow: none
+
+    .v-btn__overlay,
+    .v-btn__underlay
+      opacity: 0
+
+    .v-icon
+      font-size: 1.125rem
+      color: #6b7280 !important
+
+    &:hover:not(:disabled)
+      background: #f9fafb !important
+      border-color: #9ca3af !important
+
+  .event-actions-menu-wrapper
+    overflow: visible !important
+
+    .v-overlay__content
+      overflow: visible !important
+
+  .event-actions-menu
+    position: relative
+    min-width: 220px
+    padding: 6px 0 !important
+    border: 1px solid #e5e7eb
+    border-radius: 10px
+    background: #ffffff
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12)
+
+    &::before
+      content: ''
+      position: absolute
+      top: -5px
+      right: 10px
+      width: 10px
+      height: 10px
+      background: #ffffff
+      border-top: 1px solid #e5e7eb
+      border-left: 1px solid #e5e7eb
+      transform: rotate(45deg)
+
+    .event-actions-menu__item
+      min-height: 40px
+      padding-inline: 14px !important
+      color: #111827
+
+      .v-list-item__prepend > .v-icon
+        color: #4b5563
+        opacity: 1
+        font-size: 1.125rem
+        margin-inline-end: 10px
+
+      .v-list-item-title
+        font-size: 0.875rem
+        font-weight: 500
+        line-height: 1.25
+
+      &:hover
+        background: #f8fafc
+
+  .avatar-initials
+    font-size: 0.65rem
+    font-weight: 800
+    line-height: 1
+
+  .avatar-image
+    width: 100%
+    height: 100%
+    object-fit: cover
 
   .report-header
     display: flex
@@ -1392,6 +2238,7 @@ const getData = async () => {
 
       .v-icon
         font-size: 1.125rem
+        opacity: 1
 
     .report-btn--outlined
       background: #ffffff !important
@@ -1438,7 +2285,7 @@ const getData = async () => {
 
   .filter-card .filters
     display: grid
-    grid-template-columns: repeat(5, minmax(0, 1fr))
+    grid-template-columns: repeat(3, minmax(0, 1fr))
     gap: 0.75rem
     margin-bottom: 0
     align-items: start
@@ -1467,6 +2314,23 @@ const getData = async () => {
     max-height: 4.25rem
     overflow: hidden
 
+  .filter-card .filters .v-field
+    border-radius: 0.5rem !important
+
+  .filter-card .filters .v-field__outline,
+  .filter-card .filters .v-field__overlay
+    border-radius: 0.5rem !important
+
+  .filter-card .filters .v-field__input,
+  .filter-card .filters .v-select__selection-text,
+  .filter-card .filters .v-autocomplete__selection-text
+    color: #000000 !important
+
+  .filter-card .filters .v-field__input::placeholder,
+  .filter-card .filters input::placeholder
+    color: #000000 !important
+    opacity: 1 !important
+
   .filter-card .filters .v-chip
     font-size: 0.75rem
 
@@ -1484,6 +2348,23 @@ const getData = async () => {
 
     :deep(.filter-date-select)
       width: 100%
+
+      .v-field
+        border-radius: 0.5rem !important
+
+      .v-field__outline,
+      .v-field__overlay
+        border-radius: 0.5rem !important
+
+      .v-field__input,
+      .v-select__selection-text,
+      .v-autocomplete__selection-text
+        color: #000000 !important
+
+      .v-field__input::placeholder,
+      input::placeholder
+        color: #000000 !important
+        opacity: 1 !important
 
     :deep(.numbers-input)
       max-width: 100%
@@ -1546,6 +2427,14 @@ const getData = async () => {
       border-radius: 50%
       font-size: 1.5rem
 
+    .summary-card__icon
+      flex-shrink: 0
+      width: 3rem
+      height: 3rem
+      border-radius: 0.5rem
+      object-fit: cover
+      display: block
+
     span
       display: block
       color: #64748b
@@ -1560,38 +2449,27 @@ const getData = async () => {
       font-size: 1.35rem
       line-height: 1.2
       font-weight: 700
+      color: #000000
 
   .summary-card--green
     .v-icon
       color: #ffffff
       background: #22c55e
 
-    strong
-      color: #16a34a
-
   .summary-card--blue
     .v-icon
       color: #ffffff
       background: #3b82f6
-
-    strong
-      color: #2563eb
 
   .summary-card--purple
     .v-icon
       color: #ffffff
       background: #8b5cf6
 
-    strong
-      color: #7c3aed
-
   .summary-card--orange
     .v-icon
       color: #ffffff
       background: #f59e0b
-
-    strong
-      color: #d97706
 
   .v-list-item__content
     display: flex
@@ -1627,11 +2505,11 @@ const getData = async () => {
     flex-direction: column
     gap: 1.5rem
 
-  .v-table .v-table__wrapper > table > tbody > tr > td, .v-table .v-table__wrapper > table > thead > tr > th, .v-table .v-table__wrapper > table > tfoot > tr > td
+  .v-table:not(.report-data-table) .v-table__wrapper > table > tbody > tr > td, .v-table:not(.report-data-table) .v-table__wrapper > table > thead > tr > th, .v-table:not(.report-data-table) .v-table__wrapper > table > tfoot > tr > td
     border: thin solid rgba(var(--v-border-color), var(--v-border-opacity))
     text-align: center
 
-  .v-table 
+  .v-table:not(.report-data-table)
     border-radius: 0.25rem
     border: 2px solid rgba(var(--v-border-color), var(--v-border-opacity))
 
