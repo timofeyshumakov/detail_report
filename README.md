@@ -33,6 +33,7 @@
 - Генератор сделок, рассылки, сегментация аудитории
 - Экспорт Excel по стадиям (Потенциал / Договоренности / Передано / Отказ)
 <img width="800" height="412" alt="ezgif com-video-to-gif-converter (1)" src="https://github.com/user-attachments/assets/3a1141d3-b88f-44f2-ad2e-5b4b027a6324" />
+
 ## Требования
 
 - Node.js 20+
