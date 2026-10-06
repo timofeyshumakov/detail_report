@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GigaCodeAgentSettings">
+    <option name="autoApproveEdits" value="true" />
+    <option name="autoApprovedCommands">
+      <list>
+        <Execute>
+          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response6.json" />
+        </Execute>
+        <Execute>
+          <option name="pattern" value="powershell -ExecutionPolicy Bypass -File &quot;C:\papki\work\web\bitrix24\ittochka\detail-report\.tmp-batch-check5.ps1&quot;" />
+        </Execute>
+        <Execute>
+          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response7.json" />
+        </Execute>
+        <Execute>
+          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response8.json" />
+        </Execute>
+        <Execute>
+          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response9.json" />
+        </Execute>
+      </list>
+    </option>
+  </component>
+</project>

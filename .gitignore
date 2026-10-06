@@ -1,0 +1,13 @@
+archive
+dist
+node_modules
+build.bat
+start.bat
+package-lock.json
+.vscode
+.git
+
+# Секреты: ключи, сертификаты, настройки CRest
+private.key
+cert.pem
+server/settings.json

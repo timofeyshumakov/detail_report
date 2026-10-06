@@ -1,0 +1,37 @@
+<component name="libraryTable">
+  <library name="archive">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/archive/build.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/генератор сделок.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/send.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/ivan.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/okk_market.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/opros.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/детальный отчет.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/spprojects.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/hiring_report_old.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/t3.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/award.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/deal_boss.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/field.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/dd222.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/t2.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/dd2copy.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/company_years.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/managers.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/odk.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/bot.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/dd2.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/ipr.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/dd.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/t1.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/report.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/service_form.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/контакты для рассылки.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/ца контакта.zip!/" />
+      <root url="jar://$PROJECT_DIR$/archive/рассылка.zip!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
