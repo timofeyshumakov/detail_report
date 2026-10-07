@@ -1,4 +1,10 @@
-import { callApi, getListElements } from './callApi'
+import {
+  callApi,
+  getBx24Auth,
+  getCurrentBxUserId,
+  getCurrentBxUserName,
+  getListElements,
+} from './callApi'
 import {
   createRateLimitError,
   isRateLimitError,
@@ -321,9 +327,15 @@ export async function generateDealsChunked(options: {
 }): Promise<DealGeneratorGenerateResult> {
   const audienceIds = options.selectedAudience.map((item) => item.ID)
   const audienceNames = options.selectedAudience.map((item) => item.NAME)
-  // authorId и authorName передаются из UI или определяются на сервере
 
   options.onProgress?.({ created: 0, total: 0, phase: 'Загрузка компаний' })
+
+  // Auth и author нужны серверу: crm.deal.add идёт от имени текущего пользователя
+  const auth = getBx24Auth()
+  const [authorId, authorName] = await Promise.all([
+    getCurrentBxUserId(),
+    getCurrentBxUserName(),
+  ])
 
   const companies = await loadCompaniesForGeneration(
     options.mode,
@@ -361,8 +373,9 @@ export async function generateDealsChunked(options: {
       eventId: options.event.id ?? options.event.ID,
       audienceIds,
       audienceNames,
-      authorId: options.event.authorId ?? null,
-      authorName: options.event.authorName ?? null,
+      authorId,
+      authorName,
+      auth,
       companies: chunks[index],
       finalize: index === chunks.length - 1,
     }, {

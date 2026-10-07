@@ -1133,7 +1133,7 @@
 <script setup lang="ts">
 // @ts-nocheck
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { callApi, callBxMethod, callBatchCommands } from '../functions/callApi'
+import { callApi, callBxMethod, callBatch, callBatchCommands } from '../functions/callApi'
 import { resolveDealMetricContribution, resolveDealReportSum } from '../functions/eventReportMetrics'
 import AudienceSegmentationDialog from './AudienceSegmentationDialog.vue'
 import AppZoomSlider from './AppZoomSlider.vue'
@@ -3471,24 +3471,20 @@ async function loadContactsByIds(ids) {
   contactsLoading.value = true
   try {
     const nextMap = { ...contactsById.value }
-    // Bitrix crm.contact.list обычно отдаёт до 50 записей за запрос
-    const batchSize = 50
-    for (let offset = 0; offset < uniqueIds.length; offset += batchSize) {
-      const chunk = uniqueIds.slice(offset, offset + batchSize)
-      const result = await callApi(
-        'crm.contact.list',
-        { ID: chunk },
-        ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME', 'POST'],
-      )
-      const items = Array.isArray(result)
-        ? (result.length && Array.isArray(result[0]) ? result.flat() : result)
-        : []
-      items.forEach((contact) => {
-        const id = String(contact.ID ?? contact.id ?? '')
-        if (!id) return
-        nextMap[id] = contact
-      })
-    }
+    // callApi сам режет ID на чанки по 50 и забирает через BX24.callBatch
+    const result = await callApi(
+      'crm.contact.list',
+      { ID: uniqueIds },
+      ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME', 'POST'],
+    )
+    const items = Array.isArray(result)
+      ? (result.length && Array.isArray(result[0]) ? result.flat() : result)
+      : []
+    items.forEach((contact) => {
+      const id = String(contact.ID ?? contact.id ?? '')
+      if (!id) return
+      nextMap[id] = contact
+    })
     contactsById.value = nextMap
     contactsRevision.value += 1
   } catch (error) {

@@ -639,9 +639,8 @@ import WelcomeMailingDialog from '../components/WelcomeMailingDialog.vue';
 import EventDealsDialog from '../components/EventDealsDialog.vue';
 import ChecklistTypeDialog from '../components/ChecklistTypeDialog.vue';
 import { useSnackbar } from '../composables/useSnackbar';
-import { buildCompanyTableDateFilter, formatDateFilterRange, isDealWithinDateRange, isEventWithinDateRange } from '../functions/dateFilter';
+import { formatDateFilterRange, isDealWithinDateRange, isEventWithinDateRange } from '../functions/dateFilter';
 import {
-  DEAL_SELECT_FIELDS,
   DEAL_SELECT_FIELDS_WITH_COMMENTS,
   EVENT_DEAL_STAGES,
   buildEventDealFilter,
@@ -3063,43 +3062,39 @@ const getData = async () => {
     ...eventFilter,
   }
 
-  const dealFiltersForCompanies = {
-    ...buildCompanyTableDateFilter(selectedDateIso.value),
-    STAGE_ID: filterCategory,
-    ...assignedFilterPart,
-    ...eventFilter,
-  }
-
   loadingProgress.value = Math.max(loadingProgress.value, 38);
-  loadingMessage.value = 'Загрузка сделок для сводной таблицы…';
+  loadingMessage.value = 'Загрузка сделок…';
 
+  // Один запрос вместо двух: сводная и детальная таблицы отличаются только
+  // фильтром даты передачи — его применяем на клиенте (isDealWithinDateRange).
   let dealsLocal2 = [];
+  let dealsLocal = [];
   try {
     if (!filterEvents.length) {
       dealsLocal2 = []
+      dealsLocal = []
     } else {
-      dealsLocal2 = await fetchDealsFromHandler(dealFiltersForEvents, DEAL_SELECT_FIELDS, rateLimitFetchOptions);
+      dealsLocal2 = await fetchDealsFromHandler(
+        dealFiltersForEvents,
+        DEAL_SELECT_FIELDS_WITH_COMMENTS,
+        rateLimitFetchOptions,
+      );
+      const [dateFromDeal, dateToDeal] = formatDateFilterRange(selectedDateIso.value)
+      const hasDealDateFilter = Boolean(dateFromDeal || dateToDeal)
+      dealsLocal = hasDealDateFilter
+        ? dealsLocal2.filter((deal) => isDealWithinDateRange(
+          deal?.UF_CRM_1744096783472,
+          dateFromDeal,
+          dateToDeal,
+        ))
+        : dealsLocal2
     }
   } catch (error) {
     console.error('Ошибка при получении сделок:', error);
-    showError(error, 'Ошибка при загрузке сделок для сводной таблицы');
+    showError(error, 'Ошибка при загрузке сделок');
   }
 
   loadingProgress.value = Math.max(loadingProgress.value, 56);
-  loadingMessage.value = 'Загрузка детальных сделок…';
-
-  let dealsLocal = [];
-  try {
-    const companyEventIds = dealFiltersForCompanies.DYNAMIC_1052
-    if (Array.isArray(companyEventIds) && companyEventIds.length === 0) {
-      dealsLocal = []
-    } else {
-      dealsLocal = await fetchDealsFromHandler(dealFiltersForCompanies, DEAL_SELECT_FIELDS_WITH_COMMENTS, rateLimitFetchOptions);
-    }
-  } catch (error) {
-    console.error('Ошибка при получении сделок:', error);
-    showError(error, 'Ошибка при загрузке детальных сделок');
-  }
 
   loadingProgress.value = Math.max(loadingProgress.value, 82);
 

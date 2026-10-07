@@ -398,7 +398,7 @@
             </v-col>
             <v-col cols="12">
               <v-select
-                v-model="editContactData.UF_CRM_1753364801"
+                v-model="editContactData.UF_CRM_1782832034"
                 :items="audienceOptions"
                 item-title="title"
                 item-value="id"
@@ -470,7 +470,7 @@
             </v-col>
             <v-col cols="12">
               <v-select
-                v-model="newContactData.UF_CRM_1753364801"
+                v-model="newContactData.UF_CRM_1782832034"
                 :items="audienceOptions"
                 item-title="title"
                 item-value="id"
@@ -616,7 +616,7 @@ export default {
 
     const normalizeContactAudienceField = (contact) => {
       if (!contact || typeof contact !== 'object') return;
-      contact.UF_CRM_1753364801 = normalizeIdList(contact.UF_CRM_1753364801);
+      contact.UF_CRM_1782832034 = normalizeIdList(contact.UF_CRM_1782832034);
     };
 
     const loadCompanyContactIds = async (targetCompanyId) => {
@@ -662,8 +662,8 @@ const selectedAudienceFilter = ref('');
   const allAudienceIds = new Set();
   
   contacts.value.forEach(contact => {
-    if (contact.UF_CRM_1753364801 && contact.UF_CRM_1753364801.length > 0) {
-      contact.UF_CRM_1753364801.forEach(audienceId => {
+    if (contact.UF_CRM_1782832034 && contact.UF_CRM_1782832034.length > 0) {
+      contact.UF_CRM_1782832034.forEach(audienceId => {
         const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
         if (audienceTitle && audienceTitle.trim() !== '' && !allAudienceIds.has(String(audienceId))) {
           allAudienceIds.add(String(audienceId));
@@ -759,7 +759,7 @@ const selectedAudienceFilter = ref('');
       SECOND_NAME: '',
       POST: '',
       UF_CRM_1753083765: null,
-      UF_CRM_1753364801: [],
+      UF_CRM_1782832034: [],
       emailValue: '',
       phoneValue: ''
     });
@@ -772,7 +772,7 @@ const selectedAudienceFilter = ref('');
       SECOND_NAME: '',
       POST: '',
       UF_CRM_1753083765: null,
-      UF_CRM_1753364801: [],
+      UF_CRM_1782832034: [],
       emailValue: '',
       phoneValue: ''
     });
@@ -818,8 +818,8 @@ const selectedAudienceFilter = ref('');
       editContactData.SECOND_NAME = contact.SECOND_NAME || '';
       editContactData.POST = contact.POST || '';
       editContactData.UF_CRM_1753083765 = contact.UF_CRM_1753083765 ? String(contact.UF_CRM_1753083765) : null;
-      editContactData.UF_CRM_1753364801 = contact.UF_CRM_1753364801 ? 
-        contact.UF_CRM_1753364801.map(id => String(id)) : [];
+      editContactData.UF_CRM_1782832034 = contact.UF_CRM_1782832034 ? 
+        contact.UF_CRM_1782832034.map(id => String(id)) : [];
       
       // Извлекаем первый email
       editContactData.emailValue = contact.EMAIL && contact.EMAIL[0] ? 
@@ -854,10 +854,10 @@ const selectedAudienceFilter = ref('');
         }
         
         // Целевые аудитории (массив)
-        if (editContactData.UF_CRM_1753364801 && editContactData.UF_CRM_1753364801.length > 0) {
-          updateData.UF_CRM_1753364801 = editContactData.UF_CRM_1753364801;
+        if (editContactData.UF_CRM_1782832034 && editContactData.UF_CRM_1782832034.length > 0) {
+          updateData.UF_CRM_1782832034 = editContactData.UF_CRM_1782832034;
         } else {
-          updateData.UF_CRM_1753364801 = [];
+          updateData.UF_CRM_1782832034 = [];
         }
         
         // Email (если изменился)
@@ -898,7 +898,7 @@ const selectedAudienceFilter = ref('');
           // Обновляем поля
           updatedContact.POST = updateData.POST;
           updatedContact.UF_CRM_1753083765 = updateData.UF_CRM_1753083765;
-          updatedContact.UF_CRM_1753364801 = updateData.UF_CRM_1753364801;
+          updatedContact.UF_CRM_1782832034 = updateData.UF_CRM_1782832034;
           
           // Обновляем email и телефон
           if (updateData.EMAIL) {
@@ -947,11 +947,11 @@ const selectedAudienceFilter = ref('');
 
     // Функция для получения названий целевых аудиторий контакта
     const getContactAudienceTitles = (contact) => {
-      if (!contact.UF_CRM_1753364801 || contact.UF_CRM_1753364801.length === 0) {
+      if (!contact.UF_CRM_1782832034 || contact.UF_CRM_1782832034.length === 0) {
         return [];
       }
       
-      return contact.UF_CRM_1753364801
+      return contact.UF_CRM_1782832034
         .map(audienceId => audienceTitles.value.get(String(audienceId)) || String(audienceId))
         .filter(title => title && title.trim() !== '');
     };
@@ -1175,7 +1175,7 @@ const selectedAudienceFilter = ref('');
         loading.value = true;
         const [users, productsToFetch, equipmentToFetch] = await fetchCompanyData();
         await fetchKeyPersons();
-        const userData = await callApi("crm.contact.list", { ID: users }, ["UF_CRM_1750766630", "NAME", "LAST_NAME", "SECOND_NAME", "POST", "TYPE_ID", "EMAIL", "PHONE", "UF_CRM_1753364801", "UF_CRM_1753083765", "UF_CRM_1756633452"]);
+        const userData = await callApi("crm.contact.list", { ID: users }, ["UF_CRM_1750766630", "NAME", "LAST_NAME", "SECOND_NAME", "POST", "TYPE_ID", "EMAIL", "PHONE", "UF_CRM_1782832034", "UF_CRM_1753083765", "UF_CRM_1756633452"]);
         
         products.value = await callApi("crm.item.list", {id: productsToFetch}, ["id", "title", "ufCrm26_1753365041"], 189);
         equipment.value = await callApi("crm.item.list", {id: equipmentToFetch}, ["id", "title", "ufCrm62_1753365319"], 1104);
@@ -1234,7 +1234,7 @@ const selectedAudienceFilter = ref('');
         return true;
       }
 
-      if (!contact.UF_CRM_1753364801 || contact.UF_CRM_1753364801.length === 0) {
+      if (!contact.UF_CRM_1782832034 || contact.UF_CRM_1782832034.length === 0) {
         return false;
       }
 
@@ -1246,15 +1246,15 @@ const selectedAudienceFilter = ref('');
         return true;
       }
       
-      return contact.UF_CRM_1753364801.some(audienceId => 
+      return contact.UF_CRM_1782832034.some(audienceId => 
         targetAudiences.includes(String(audienceId))
       );
     };
 
     const contactsWithoutAudience = computed(() => {
       return contacts.value.filter(contact => 
-        !contact.UF_CRM_1753364801 || 
-        contact.UF_CRM_1753364801.length === 0
+        !contact.UF_CRM_1782832034 || 
+        contact.UF_CRM_1782832034.length === 0
       );
     });
 
@@ -1386,14 +1386,14 @@ const selectedAudienceFilter = ref('');
   contacts.value
     .filter(contact => {
       // Исключаем контакты без целевых аудиторий
-      if (!contact.UF_CRM_1753364801 || contact.UF_CRM_1753364801.length === 0) {
+      if (!contact.UF_CRM_1782832034 || contact.UF_CRM_1782832034.length === 0) {
         return false;
       }
       
       return showAllForCompany || isContactInTargetAudience(contact);
     })
     .forEach(contact => {
-      contact.UF_CRM_1753364801.forEach(audienceId => {
+      contact.UF_CRM_1782832034.forEach(audienceId => {
         const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
         
         if (!audienceTitle || audienceTitle.trim() === '') {
@@ -1457,7 +1457,7 @@ const newContactData = reactive({
     SECOND_NAME: '',
     POST: '',
     UF_CRM_1753083765: null,
-    UF_CRM_1753364801: [],
+    UF_CRM_1782832034: [],
     emailValue: '',
     phoneValue: ''
 });
@@ -1582,8 +1582,8 @@ const createContact = async () => {
         }
         
         // Целевые аудитории
-        if (newContactData.UF_CRM_1753364801 && newContactData.UF_CRM_1753364801.length > 0) {
-            createData.UF_CRM_1753364801 = newContactData.UF_CRM_1753364801;
+        if (newContactData.UF_CRM_1782832034 && newContactData.UF_CRM_1782832034.length > 0) {
+            createData.UF_CRM_1782832034 = newContactData.UF_CRM_1782832034;
         }
         
         // Email
@@ -1645,7 +1645,7 @@ const createContact = async () => {
         const loadedContact = await callApi(
             "crm.contact.list", 
             { ID: createdContact }, 
-            ["UF_CRM_1750766630", "NAME", "LAST_NAME", "SECOND_NAME", "POST", "TYPE_ID", "EMAIL", "PHONE", "UF_CRM_1753364801", "UF_CRM_1753083765", "UF_CRM_1756633452"]
+            ["UF_CRM_1750766630", "NAME", "LAST_NAME", "SECOND_NAME", "POST", "TYPE_ID", "EMAIL", "PHONE", "UF_CRM_1782832034", "UF_CRM_1753083765", "UF_CRM_1756633452"]
         );
         
         if (loadedContact[0]) {

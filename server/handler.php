@@ -17,6 +17,9 @@ require_once __DIR__ . '/crest.php';
 require_once __DIR__ . '/dealGenerator.php';
 
 const BITRIX_BATCH_COMMAND_LIMIT = 50;
+/** Сколько list-страниц класть в один batch. 50 crm.deal.list в одном batch
+ *  почти всегда упирается в operation time limit и «висит» десятки секунд. */
+const LIST_METHOD_BATCH_PAGES = 5;
 const MAX_ITEMS_PER_REQUEST = 2500;
 const DEFAULT_PAGE_SIZE = 50;
 const RATE_LIMIT_RETRY_SECONDS = 60;
@@ -213,6 +216,55 @@ function buildBatchCommand(string $method, array $params = []): array
 }
 
 /**
+ * Разбор ответа batch REST:
+ * { result: { result: {cmd: data}, result_error: {...}, result_total: {...} }, time: {...} }
+ *
+ * @param array<string, mixed> $response
+ * @return array{
+ *   results: array<string, mixed>,
+ *   errors: array<string, array<string, mixed>>,
+ *   totals: array<string, int>
+ * }
+ */
+function extractBatchPayload(array $response): array
+{
+    $outer = $response['result'] ?? null;
+    if (!is_array($outer)) {
+        return ['results' => [], 'errors' => [], 'totals' => []];
+    }
+
+    // Нормальный ответ batch
+    if (isset($outer['result']) && is_array($outer['result'])) {
+        $errors = [];
+        if (isset($outer['result_error']) && is_array($outer['result_error'])) {
+            foreach ($outer['result_error'] as $key => $error) {
+                if (is_array($error)) {
+                    $errors[(string)$key] = $error;
+                }
+            }
+        }
+
+        $totals = [];
+        if (isset($outer['result_total']) && is_array($outer['result_total'])) {
+            foreach ($outer['result_total'] as $key => $total) {
+                if (is_numeric($total)) {
+                    $totals[(string)$key] = (int)$total;
+                }
+            }
+        }
+
+        return [
+            'results' => $outer['result'],
+            'errors' => $errors,
+            'totals' => $totals,
+        ];
+    }
+
+    // На всякий случай: result уже карта команд
+    return ['results' => $outer, 'errors' => [], 'totals' => []];
+}
+
+/**
  * @param array<string, array{method?: string, params?: array<string, mixed>}|string> $commands
  * @return array<string, mixed>
  */
@@ -251,35 +303,27 @@ function executeBatchCommands(array $commands): array
             continue;
         }
 
-        $chunkErrors = $response['result_error'] ?? [];
-        if (is_array($chunkErrors)) {
-            foreach ($chunkErrors as $chunkError) {
-                if (!is_array($chunkError)) {
-                    continue;
-                }
-                if (isOperationTimeLimitResponse($chunkError)) {
-                    throw new OperationTimeLimitException(
-                        $chunkError['error_description']
-                        ?? $chunkError['error']
-                        ?? 'Method is blocked due to operation time limit.'
-                    );
-                }
-                if (isRateLimitResponse($chunkError)) {
-                    throw new RateLimitException(
-                        $chunkError['error_description']
-                        ?? $chunkError['error']
-                        ?? 'QUERY_LIMIT_EXCEEDED'
-                    );
-                }
+        $payload = extractBatchPayload($response);
+
+        foreach ($payload['errors'] as $key => $chunkError) {
+            if (isOperationTimeLimitResponse($chunkError)) {
+                throw new OperationTimeLimitException(
+                    $chunkError['error_description']
+                    ?? $chunkError['error']
+                    ?? 'Method is blocked due to operation time limit.'
+                );
             }
+            if (isRateLimitResponse($chunkError)) {
+                throw new RateLimitException(
+                    $chunkError['error_description']
+                    ?? $chunkError['error']
+                    ?? 'QUERY_LIMIT_EXCEEDED'
+                );
+            }
+            error_log('[executeBatchCommands] command error ' . $key . ': ' . ($chunkError['error_description'] ?? $chunkError['error'] ?? 'unknown'));
         }
 
-        $chunkResults = $response['result']['result'] ?? [];
-        if (!is_array($chunkResults)) {
-            continue;
-        }
-
-        foreach ($chunkResults as $key => $value) {
+        foreach ($payload['results'] as $key => $value) {
             $results[(string)$key] = $value;
         }
     }
@@ -393,11 +437,25 @@ function callListMethod(string $method, array $params, int $maxItems): array
         $maxItems = min($maxItems, MAX_ITEMS_PER_REQUEST);
     }
 
+    $startedAt = microtime(true);
     error_log("[callListMethod] method=$method maxItems=$maxItems entityTypeId=" . ($params['entityTypeId'] ?? 'N/A') . " IBLOCK_CODE=" . ($params['IBLOCK_CODE'] ?? 'N/A'));
 
-    // Без стабильной сортировки страницы при пагинации через start могут пересекаться
-    if ($method === 'crm.item.list' && empty($params['order'])) {
-        $params['order'] = ['id' => 'ASC'];
+    // Стабильная сортировка обязательна для пагинации через start
+    if (empty($params['order'])) {
+        if ($method === 'crm.item.list') {
+            $params['order'] = ['id' => 'ASC'];
+        } elseif (
+            $method === 'crm.deal.list'
+            || $method === 'crm.company.list'
+            || $method === 'crm.contact.list'
+        ) {
+            $params['order'] = ['ID' => 'ASC'];
+        }
+    }
+
+    // select=[] / null не передаём — Bitrix отдаёт все поля, это сильно медленнее
+    if (array_key_exists('select', $params) && (!is_array($params['select']) || $params['select'] === [])) {
+        unset($params['select']);
     }
 
     $firstParams = $params;
@@ -415,6 +473,13 @@ function callListMethod(string $method, array $params, int $maxItems): array
         || count($items) < $pageSize
         || ($baseStart + count($items)) >= $total
     ) {
+        error_log(sprintf(
+            '[callListMethod] done method=%s items=%d total=%d elapsed=%.2fs (single page)',
+            $method,
+            count($items),
+            $total,
+            microtime(true) - $startedAt
+        ));
         return [
             'items' => array_slice($items, 0, $maxItems),
             'total' => $total,
@@ -431,27 +496,77 @@ function callListMethod(string $method, array $params, int $maxItems): array
         ];
     }
 
-    // Остальные страницы забираем через batch (до 50 страниц = 2500 записей за HTTP-запрос).
-    // CRest::callBatch кладёт params в query-строку команды, поэтому entityTypeId/IBLOCK_ID передаются корректно.
-    $commands = [];
-    for ($page = 1; $page <= $pagesNeeded; $page++) {
-        $pageParams = $params;
-        $pageParams['start'] = $baseStart + ($page * $pageSize);
-        unset($pageParams['limit']);
-        $commands['page_' . $page] = buildBatchCommand($method, $pageParams);
+    // Страницы пачками по LIST_METHOD_BATCH_PAGES: быстрее и стабильнее, чем 50 list в одном batch.
+    // CRest::callBatch кладёт params в query-строку команды — entityTypeId/filter/select доходят.
+    for ($pageOffset = 1; $pageOffset <= $pagesNeeded; $pageOffset += LIST_METHOD_BATCH_PAGES) {
+        if (count($items) >= $maxItems) {
+            break;
+        }
+
+        $commands = [];
+        $pageEnd = min($pageOffset + LIST_METHOD_BATCH_PAGES - 1, $pagesNeeded);
+        for ($page = $pageOffset; $page <= $pageEnd; $page++) {
+            $pageParams = $params;
+            $pageParams['start'] = $baseStart + ($page * $pageSize);
+            unset($pageParams['limit']);
+            $commands['page_' . $page] = buildBatchCommand($method, $pageParams);
+        }
+
+        try {
+            $batchResults = executeBatchCommands($commands);
+        } catch (OperationTimeLimitException $error) {
+            // Если batch упёрся в лимит — добираем оставшиеся страницы по одной
+            error_log('[callListMethod] batch operation time limit, fallback to sequential from page ' . $pageOffset);
+            $batchResults = [];
+        }
+
+        $emptyPage = false;
+        for ($page = $pageOffset; $page <= $pageEnd; $page++) {
+            $key = 'page_' . $page;
+            $chunk = [];
+
+            if (array_key_exists($key, $batchResults)) {
+                $chunk = extractItems($batchResults[$key]);
+            } else {
+                // Нет результата в batch — прямой запрос этой страницы
+                $pageParams = $params;
+                $pageParams['start'] = $baseStart + ($page * $pageSize);
+                unset($pageParams['limit']);
+                $pageResponse = callBitrixWithRateLimitRetry(function () use ($method, $pageParams) {
+                    return CRest::call($method, $pageParams);
+                });
+                $chunk = extractItems($pageResponse['result'] ?? []);
+            }
+
+            if ($chunk === []) {
+                $emptyPage = true;
+                break;
+            }
+
+            $items = array_merge($items, $chunk);
+
+            if (count($chunk) < $pageSize || count($items) >= $maxItems) {
+                $emptyPage = count($chunk) < $pageSize;
+                break;
+            }
+        }
+
+        if ($emptyPage || count($items) >= $maxItems) {
+            break;
+        }
     }
 
-    $batchResults = executeBatchCommands($commands);
-    foreach (array_keys($commands) as $key) {
-        if (!array_key_exists($key, $batchResults)) {
-            error_log("[callListMethod] batch page $key missing for method=$method");
-            continue;
-        }
-        $items = array_merge($items, extractItems($batchResults[$key]));
-    }
+    $items = array_slice($items, 0, $maxItems);
+    error_log(sprintf(
+        '[callListMethod] done method=%s items=%d total=%d elapsed=%.2fs',
+        $method,
+        count($items),
+        $total,
+        microtime(true) - $startedAt
+    ));
 
     return [
-        'items' => array_slice($items, 0, $maxItems),
+        'items' => $items,
         'total' => $total,
     ];
 }

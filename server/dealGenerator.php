@@ -314,8 +314,12 @@ function createDealsForCompanyChunk(
     array $event,
     array $audienceIds,
     string $authorId,
-    array $userAuth,
+    ?array $userAuth = null,
 ): array {
+    if ($userAuth === null) {
+        throw new RuntimeException('Не передан auth текущего пользователя (нужен для crm.deal.add)');
+    }
+
     $createdDealIds = [];
     $companyIds = array_values(array_filter(array_map(
         static fn(array $company) => $company['ID'] ?? null,
@@ -396,7 +400,12 @@ function resolveDealGeneratorAuthorId(array $data): string
  */
 function resolveDealGeneratorUserAuth(array $data): array
 {
+    // auth может прийти как data.auth или вложенным в params
     $auth = $data['auth'] ?? null;
+    if (!is_array($auth) && isset($data['params']) && is_array($data['params'])) {
+        $auth = $data['params']['auth'] ?? null;
+    }
+
     if (!is_array($auth)) {
         throw new RuntimeException('Не передан auth текущего пользователя');
     }
@@ -410,6 +419,10 @@ function resolveDealGeneratorUserAuth(array $data): array
 
     $domain = preg_replace('#^https?://#i', '', $domain) ?? $domain;
     $domain = rtrim($domain, '/');
+
+    if ($domain === '' || $accessToken === '') {
+        throw new RuntimeException('Некорректный auth текущего пользователя');
+    }
 
     return [
         'domain' => $domain,

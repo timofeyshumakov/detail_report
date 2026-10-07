@@ -10,6 +10,57 @@ function isInsideBitrix24(): boolean {
     return typeof (window as any).BX24 !== 'undefined';
 }
 
+export type Bx24UserAuth = {
+    domain: string;
+    access_token: string;
+};
+
+/**
+ * Auth текущего пользователя BX24 (для серверных вызовов от имени пользователя).
+ */
+export function getBx24Auth(): Bx24UserAuth {
+    if (!isInsideBitrix24()) {
+        throw new Error('Приложение должно быть открыто в Bitrix24');
+    }
+
+    const auth = (window as any).BX24?.getAuth?.();
+    const domain = String(auth?.domain || '').replace(/^https?:\/\//i, '').replace(/\/$/, '').trim();
+    const accessToken = String(auth?.access_token || '').trim();
+
+    if (!domain || !accessToken) {
+        throw new Error('Не удалось получить auth текущего пользователя Bitrix24');
+    }
+
+    return {
+        domain,
+        access_token: accessToken,
+    };
+}
+
+/** ID текущего пользователя BX24 */
+export async function getCurrentBxUserId(): Promise<string> {
+    const user = await callBxMethod('user.current', {});
+    const id = user?.ID ?? user?.id;
+    if (id == null || id === '') {
+        throw new Error('Не удалось определить текущего пользователя');
+    }
+    return String(id);
+}
+
+/** ФИО текущего пользователя BX24 */
+export async function getCurrentBxUserName(): Promise<string> {
+    try {
+        const user = await callBxMethod('user.current', {});
+        return [user?.LAST_NAME, user?.NAME, user?.SECOND_NAME]
+            .map((part) => String(part || '').trim())
+            .filter(Boolean)
+            .join(' ')
+            .trim();
+    } catch {
+        return '';
+    }
+}
+
 /**
  * Низкоуровневый вызов BX24.callMethod: { raw: res.data(), total }
  */
@@ -53,6 +104,11 @@ export async function callBxMethod(method: string, params: Record<string, unknow
 const BX_PAGE_SIZE = 50;
 /** Максимум команд в одном batch-запросе Bitrix24 */
 const BX_BATCH_LIMIT = 50;
+/**
+ * Сколько list-страниц класть в один BX24.callBatch.
+ * 50 crm.deal.list в одном batch часто упирается в operation time limit.
+ */
+const BX_LIST_BATCH_PAGES = 5;
 
 type BxCommand = { method: string; params: Record<string, unknown> };
 
@@ -89,30 +145,152 @@ function callBitrixBatch(commands: Record<string, BxCommand>): Promise<Record<st
     });
 }
 
+/** Поля-массивы в filter, которые нужно резать на чанки по 50 и слать batch-ом */
+const LIST_FILTER_ARRAY_KEYS = ['ID', 'id', 'parentId2', 'PARENT_ID_2'] as const;
+
+function findListFilterArray(
+    filter: Record<string, unknown> | null | undefined,
+): { key: string; values: unknown[] } | null {
+    if (!filter || typeof filter !== 'object') return null;
+    for (const key of LIST_FILTER_ARRAY_KEYS) {
+        if (!(key in filter)) continue;
+        const value = filter[key];
+        if (Array.isArray(value)) {
+            return { key, values: value };
+        }
+        // Одиночный ID — не batch
+        if (value != null && value !== '') {
+            return null;
+        }
+        // Явно пустой ID/id
+        if (key === 'ID' || key === 'id') {
+            return { key, values: [] };
+        }
+    }
+    return null;
+}
+
+function buildListMethodParams(
+    method: string,
+    filter: Record<string, unknown> | null | undefined,
+    select: string[] | null,
+    entityTypeId: number | number[] | string[] | null,
+): Record<string, unknown> {
+    const params: Record<string, unknown> = method === 'crm.item.list'
+        ? { entityTypeId: Number(entityTypeId), order: { id: 'ASC' } }
+        : { order: { ID: 'ASC' } };
+
+    if (filter && typeof filter === 'object' && Object.keys(filter).length > 0) {
+        params.filter = filter;
+    }
+    if (Array.isArray(select) && select.length > 0) {
+        params.select = select;
+    }
+    return params;
+}
+
 /**
- * Полная выгрузка list-метода: первый запрос узнаёт total,
- * остальные страницы (start = 50, 100, ...) забираются batch-ами по 50 команд
- * (до 2500 записей за один HTTP-запрос).
+ * Читает data() из ajax-результата batch-команды; при ошибке — null.
+ */
+function readBatchCommandData(res: any): any | null {
+    if (!res) return null;
+    const err = res.error?.();
+    if (err) {
+        console.error('Batch command error:', formatBxError(err));
+        return null;
+    }
+    return typeof res.data === 'function' ? res.data() : res;
+}
+
+/**
+ * Несколько list-команд одним (или несколькими) BX24.callBatch.
+ * commands: карта key → { method, params }
+ */
+async function runListCommandsBatch(
+    commands: Record<string, BxCommand>,
+): Promise<any[]> {
+    const keys = Object.keys(commands);
+    if (!keys.length) return [];
+
+    const allItems: any[] = [];
+
+    for (let i = 0; i < keys.length; i += BX_BATCH_LIMIT) {
+        const keyChunk = keys.slice(i, i + BX_BATCH_LIMIT);
+        const batchCommands: Record<string, BxCommand> = {};
+        keyChunk.forEach((key) => {
+            batchCommands[key] = commands[key];
+        });
+
+        const batchResult = await callBitrixBatch(batchCommands);
+
+        for (const key of keyChunk) {
+            const data = readBatchCommandData(batchResult[key]);
+            if (data == null) continue;
+            allItems.push(...extractListItems(data));
+        }
+    }
+
+    return allItems;
+}
+
+/**
+ * filter с массивом ID/parentId2 > 50: режем на чанки по 50 и забираем через batch.
+ * Один chunk = один list (до 50 записей), до 50 chunk-ов в одном HTTP batch.
+ */
+async function callListByFilterArrayBatches(
+    method: string,
+    filter: Record<string, unknown>,
+    select: string[] | null,
+    entityTypeId: number | number[] | string[] | null,
+    arrayKey: string,
+    values: unknown[],
+): Promise<any[]> {
+    const uniqueValues = [...new Set(values.map((v) => String(v)).filter((v) => v !== ''))];
+    if (!uniqueValues.length) return [];
+
+    const commands: Record<string, BxCommand> = {};
+    for (let i = 0; i < uniqueValues.length; i += BX_PAGE_SIZE) {
+        const chunkIds = uniqueValues.slice(i, i + BX_PAGE_SIZE);
+        const chunkFilter = { ...filter, [arrayKey]: chunkIds };
+        commands[`list_${i}`] = {
+            method,
+            params: {
+                ...buildListMethodParams(method, chunkFilter, select, entityTypeId),
+                start: 0,
+            },
+        };
+    }
+
+    return runListCommandsBatch(commands);
+}
+
+/**
+ * Полная выгрузка list-метода:
+ * - если страниц больше одной — ВСЕ страницы (включая 0) одним/несколькими batch;
+ * - total берём из result_total первой команды batch, либо из длины.
  */
 async function callListWithBatchPagination(
     method: string,
     params: Record<string, unknown>,
 ): Promise<any[]> {
+    // Сначала одна лёгкая страница, чтобы узнать total (без неё batch наугад не построить)
     const first = await callBxRaw(method, { ...params, start: 0 });
-    const allItems: any[] = [...extractListItems(first.raw)];
+    const firstItems = extractListItems(first.raw);
     const total = first.total;
 
-    if (allItems.length < BX_PAGE_SIZE || total <= allItems.length) {
-        return allItems;
+    if (firstItems.length < BX_PAGE_SIZE || total <= firstItems.length) {
+        return firstItems;
     }
 
+    // Остальные страницы — batch-ами (страница 0 уже есть)
+    const allItems: any[] = [...firstItems];
     const starts: number[] = [];
     for (let start = BX_PAGE_SIZE; start < total; start += BX_PAGE_SIZE) {
         starts.push(start);
     }
 
-    for (let i = 0; i < starts.length; i += BX_BATCH_LIMIT) {
-        const chunk = starts.slice(i, i + BX_BATCH_LIMIT);
+    for (let i = 0; i < starts.length; i += BX_LIST_BATCH_PAGES) {
+        const chunk = starts.slice(i, i + BX_LIST_BATCH_PAGES);
         const commands: Record<string, BxCommand> = {};
         chunk.forEach((start) => {
             commands[`page_${start}`] = { method, params: { ...params, start } };
@@ -121,12 +299,22 @@ async function callListWithBatchPagination(
         const batchResult = await callBitrixBatch(commands);
 
         for (const start of chunk) {
-            const res = batchResult[`page_${start}`];
-            const err = res?.error?.();
-            if (err) {
-                throw new Error(`${method} (start=${start}): ${formatBxError(err)}`);
+            let pageItems: any[] = [];
+            const data = readBatchCommandData(batchResult[`page_${start}`]);
+            if (data != null) {
+                pageItems = extractListItems(data);
+            } else {
+                const page = await callBxRaw(method, { ...params, start });
+                pageItems = extractListItems(page.raw);
             }
-            allItems.push(...extractListItems(res?.data?.()));
+
+            if (!pageItems.length) {
+                return allItems;
+            }
+            allItems.push(...pageItems);
+            if (pageItems.length < BX_PAGE_SIZE) {
+                return allItems;
+            }
         }
     }
 
@@ -142,7 +330,6 @@ export async function callApi(
     parsed: number = 0,
 ): Promise<any[]> {
     // Пустой список ID при сериализации выпадает из запроса, и Bitrix вернёт ВСЕ записи.
-    // Фильтр «ни одного ID» означает пустой результат.
     if (filter && typeof filter === 'object') {
         const idFilter = (filter as any).ID ?? (filter as any).id;
         if (('ID' in filter || 'id' in filter) && (idFilter == null || idFilter === '' || (Array.isArray(idFilter) && idFilter.length === 0))) {
@@ -150,28 +337,36 @@ export async function callApi(
         }
     }
 
-    // Для list-методов CRM используем прямой вызов BX24 (batch-пагинация)
+    // Для list-методов CRM — BX24 + batch
     if (method === 'crm.deal.list' || method === 'crm.item.list' || method === 'crm.contact.list') {
         if (!isInsideBitrix24()) {
-            // Fallback на серверный handler если не в Bitrix24
             return callViaServerHandler(method, filter, select, entityTypeId, batchNumber, parsed);
         }
 
         try {
-            // Стабильная сортировка обязательна для пагинации через start,
-            // иначе страницы могут пересекаться/терять записи
-            const params: Record<string, unknown> = method === 'crm.item.list'
-                ? { entityTypeId: Number(entityTypeId), order: { id: 'ASC' } }
-                : { order: { ID: 'ASC' } };
+            const filterObj = (filter && typeof filter === 'object')
+                ? filter as Record<string, unknown>
+                : {};
+            const arrayFilter = findListFilterArray(filterObj);
 
-            if (filter && typeof filter === 'object' && Object.keys(filter).length > 0) {
-                params.filter = filter;
-            }
-            // select: null не передаём — Bitrix вернёт поля по умолчанию
-            if (Array.isArray(select) && select.length > 0) {
-                params.select = select;
+            // Пустой массив в filter (ID/parentId2) — нечего грузить (иначе Bitrix вернёт всё)
+            if (arrayFilter && arrayFilter.values.length === 0) {
+                return [];
             }
 
+            // Массив ID/parentId2 — режем на чанки по 50 и забираем batch-ом
+            if (arrayFilter && arrayFilter.values.length > 0) {
+                return await callListByFilterArrayBatches(
+                    method,
+                    filterObj,
+                    select,
+                    entityTypeId,
+                    arrayFilter.key,
+                    arrayFilter.values,
+                );
+            }
+
+            const params = buildListMethodParams(method, filterObj, select, entityTypeId);
             return await callListWithBatchPagination(method, params);
         } catch (error) {
             console.error(`callApi error for ${method}:`, error);
@@ -179,7 +374,6 @@ export async function callApi(
         }
     }
 
-    // Для остальных методов — серверный handler
     return callViaServerHandler(method, filter, select, entityTypeId, batchNumber, parsed);
 }
 
@@ -272,6 +466,46 @@ export async function getListElements(
     return callApi('lists.element.get', filter, select, iblockId, 0, 0);
 }
 
+/**
+ * BX24.callBatch: карта key → { method, params }.
+ * Возвращает key → data() (или null при ошибке).
+ */
+export async function callBatch(
+    commands: Record<string, { method: string; params?: Record<string, unknown> }>,
+): Promise<Record<string, any>> {
+    if (!isInsideBitrix24() || !commands || Object.keys(commands).length === 0) {
+        return {};
+    }
+
+    const result: Record<string, any> = {};
+    const entries = Object.entries(commands);
+
+    for (let i = 0; i < entries.length; i += BX_BATCH_LIMIT) {
+        const chunk = entries.slice(i, i + BX_BATCH_LIMIT);
+        const batchCommands: Record<string, BxCommand> = {};
+        chunk.forEach(([key, cmd]) => {
+            batchCommands[key] = {
+                method: cmd.method,
+                params: cmd.params || {},
+            };
+        });
+
+        try {
+            const batchResult = await callBitrixBatch(batchCommands);
+            chunk.forEach(([key]) => {
+                result[key] = readBatchCommandData(batchResult[key]);
+            });
+        } catch (error) {
+            console.error('Batch error:', error);
+            chunk.forEach(([key]) => {
+                result[key] = null;
+            });
+        }
+    }
+
+    return result;
+}
+
 // Выполнение batch-запросов через BX24.
 // Возвращает массив той же длины и в том же порядке, что commands:
 // results[i] — data() i-й команды, либо null при ошибке.
@@ -299,15 +533,8 @@ export async function callBatchCommands(
 
         try {
             const batchResult = await callBitrixBatch(batchCommands);
-            chunk.forEach((cmd, index) => {
-                const raw = batchResult[`cmd${i + index}`];
-                const err = raw?.error?.();
-                if (!raw || err) {
-                    console.error(`Batch command error for ${cmd.method}:`, err ? formatBxError(err) : 'no result');
-                    results.push(null);
-                    return;
-                }
-                results.push(raw.data());
+            chunk.forEach((_cmd, index) => {
+                results.push(readBatchCommandData(batchResult[`cmd${i + index}`]));
             });
         } catch (error) {
             console.error('Batch error:', error);
