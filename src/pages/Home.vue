@@ -40,20 +40,90 @@
         </div>
       </header>
 
+      <div class="report-page__zoom" :style="zoomStyle">
       <section class="filter-card panel workspace-panel">
         <div class="workspace-tabs" role="tablist" aria-label="Разделы рабочего места">
-          <button
+          <div
             v-for="tab in workspaceTabs"
             :key="tab.id"
-            type="button"
-            role="tab"
-            class="workspace-tabs__item"
-            :class="{ 'workspace-tabs__item--active': activeWorkspaceTab === tab.id }"
-            :aria-selected="activeWorkspaceTab === tab.id"
-            @click="onWorkspaceTabClick(tab.id)"
+            class="workspace-tabs__item-wrap"
           >
-            {{ tab.title }}
-          </button>
+            <button
+              type="button"
+              role="tab"
+              class="workspace-tabs__item"
+              :class="{ 'workspace-tabs__item--active': activeWorkspaceTab === tab.id }"
+              :aria-selected="activeWorkspaceTab === tab.id"
+              @click="onWorkspaceTabClick(tab.id)"
+            >
+              {{ tab.title }}
+              <span v-if="tab.id === 'database-work' || tab.id === 'reports'" class="workspace-tabs__chevron">▾</span>
+            </button>
+
+            <div
+              v-if="tab.id === 'database-work' && isDatabaseMenuOpen"
+              class="database-menu__popup"
+            >
+              <button
+                v-for="child in databaseMenuChildren"
+                :key="child.id"
+                type="button"
+                class="database-menu__popup-item"
+                @click="openDatabasePath(child.path)"
+              >
+                <span class="database-menu__popup-icon" aria-hidden="true">
+                  <v-icon size="18" :icon="child.icon" />
+                </span>
+                <span>{{ child.title }}</span>
+              </button>
+            </div>
+
+            <div
+              v-if="tab.id === 'reports' && isReportsMenuOpen"
+              class="database-menu__popup reports-menu__popup"
+            >
+              <div
+                v-for="item in reportsMenu"
+                :key="item.id"
+                class="reports-menu__group"
+                :class="{ 'reports-menu__group--open': isReportsGroupOpen(item) }"
+              >
+                <button
+                  type="button"
+                  class="database-menu__popup-item"
+                  @click="onReportsMenuItemClick(item)"
+                >
+                  <span class="database-menu__popup-icon" aria-hidden="true">
+                    <v-icon size="18" :icon="item.icon" />
+                  </span>
+                  <span>{{ item.title }}</span>
+                  <v-icon
+                    v-if="item.children"
+                    class="reports-menu__chevron"
+                    size="16"
+                    :icon="isReportsGroupOpen(item) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                  />
+                </button>
+
+                <div v-if="item.children && isReportsGroupOpen(item)" class="reports-menu__children">
+                  <button
+                    v-for="child in item.children"
+                    :key="child.id"
+                    type="button"
+                    class="database-menu__popup-item database-menu__popup-item--child"
+                    @click="openReportLink(child.url)"
+                  >
+                    <span class="database-menu__popup-icon" aria-hidden="true">
+                      <v-icon size="16" :icon="child.icon" />
+                    </span>
+                    <span>{{ child.title }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <AppZoomSlider class="workspace-tabs__zoom" />
         </div>
 
         <div v-if="activeWorkspaceTab === 'digital-workplace'" class="filters">
@@ -230,48 +300,7 @@
           </div>
         </div>
 
-        <div v-if="activeWorkspaceTab === 'reports'" class="reports-menu">
-          <div
-            v-for="item in reportsMenu"
-            :key="item.id"
-            class="reports-menu__group"
-            :class="{ 'reports-menu__group--open': isReportsGroupOpen(item) }"
-          >
-            <button
-              type="button"
-              class="reports-menu__row"
-              @click="onReportsMenuItemClick(item)"
-            >
-              <span class="reports-menu__icon" aria-hidden="true">
-                <v-icon size="22" :icon="item.icon" />
-              </span>
-              <span class="reports-menu__title">{{ item.title }}</span>
-              <v-icon
-                class="reports-menu__chevron"
-                size="20"
-                :icon="item.children ? (isReportsGroupOpen(item) ? 'mdi-chevron-up' : 'mdi-chevron-down') : 'mdi-chevron-right'"
-              />
-            </button>
-
-            <div v-if="item.children && isReportsGroupOpen(item)" class="reports-menu__children">
-              <button
-                v-for="child in item.children"
-                :key="child.id"
-                type="button"
-                class="reports-menu__row reports-menu__row--child"
-                @click="openReportLink(child.url)"
-              >
-                <span class="reports-menu__icon reports-menu__icon--child" aria-hidden="true">
-                  <v-icon size="20" :icon="child.icon" />
-                </span>
-                <span class="reports-menu__title">{{ child.title }}</span>
-                <v-icon class="reports-menu__chevron" size="18" icon="mdi-chevron-right" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div v-else-if="activeWorkspaceTab !== 'digital-workplace'" class="workspace-tab-empty" aria-hidden="true" />
+        <div v-if="activeWorkspaceTab !== 'digital-workplace' && activeWorkspaceTab !== 'database-work' && activeWorkspaceTab !== 'reports'" class="workspace-tab-empty" aria-hidden="true" />
       </section>
 
       <section class="summary-cards">
@@ -529,6 +558,7 @@
         </v-card>
       </section>
     <img v-if="screenshotSrc" ref="screenshotImg" :src="screenshotSrc" alt="Скриншот страницы" id="screenshotImg"/>
+      </div>
   <div>
     <!-- Диалоговое окно выбора чата -->
     <v-dialog v-model="dialog" max-width="600">
@@ -684,8 +714,11 @@ import summaryRevenuePlanIcon from '../assets/summary/revenue-plan.png';
 import summaryEventsIcon from '../assets/summary/events.png';
 import summaryDealsIcon from '../assets/summary/deals.png';
 import crmLogo from '../assets/crm-logo.png';
+import AppZoomSlider from '../components/AppZoomSlider.vue';
+import { useAppZoom } from '../composables/useAppZoom';
 
 const { snackbar, snackbarText, snackbarColor, showSnackbar } = useSnackbar();
+const { zoomStyle } = useAppZoom();
 const {
   mountStickyReportTableHeaders,
   refreshStickyReportTableHeaders,
@@ -725,7 +758,7 @@ const workspaceTabs = [
   { id: 'digital-workplace', title: 'Цифровое рабочее место' },
   { id: 'database-work', title: 'Работа с базой' },
   { id: 'reports', title: 'Отчеты' },
-  { id: 'done-today', title: 'Сделано сегодня' },
+  { id: 'disk', title: 'Диск' },
   { id: 'scientific-program', title: 'Назначение менеджеров' },
   { id: 'activity-feed', title: 'Лента активности' },
 ];
@@ -756,6 +789,7 @@ const reportsMenu = [
       },
     ],
   },
+
   {
     id: 'annual-events',
     title: 'Ежегодные мероприятия',
@@ -770,7 +804,43 @@ const reportsMenu = [
   },
 ];
 
+const databaseMenuChildren = [
+  {
+    id: 'companies',
+    title: 'Компании',
+    icon: 'mdi-domain',
+    path: '/crm/company/list/',
+  },
+  {
+    id: 'contacts',
+    title: 'Контакты',
+    icon: 'mdi-account',
+    path: '/crm/contact/list/',
+  },
+];
+
 const openReportsGroups = ref([]);
+const isDatabaseMenuOpen = ref(false);
+const isReportsMenuOpen = ref(false);
+
+function toggleDatabaseMenu() {
+  isReportsMenuOpen.value = false
+  isDatabaseMenuOpen.value = !isDatabaseMenuOpen.value
+}
+
+function toggleReportsMenu() {
+  isDatabaseMenuOpen.value = false
+  isReportsMenuOpen.value = !isReportsMenuOpen.value
+  if (!isReportsMenuOpen.value) {
+    openReportsGroups.value = []
+  }
+}
+
+function openDatabasePath(path) {
+  if (!path) return
+  BX24.openPath(path)
+  isDatabaseMenuOpen.value = false
+}
 
 function isReportsGroupOpen(item) {
   return Boolean(item?.children) && openReportsGroups.value.includes(item.id)
@@ -788,6 +858,8 @@ function openReportLink(url) {
   if (!url) return
   const fullUrl = url.startsWith('http') ? url : `${getBitrixPortalOrigin()}${url}`
   window.open(fullUrl, '_blank', 'noopener,noreferrer')
+  isReportsMenuOpen.value = false
+  openReportsGroups.value = []
 }
 
 function onReportsMenuItemClick(item) {
@@ -799,10 +871,22 @@ function onReportsMenuItemClick(item) {
 }
 
 function onWorkspaceTabClick(tabId) {
-  if (tabId === 'database-work') {
-    openSponsorCompaniesList()
+  if (tabId === 'disk') {
+    const fullUrl = `${getBitrixPortalOrigin()}/docs/path/%D0%9F%D1%80%D0%B8%D0%B2%D0%BB%D0%B5%D1%87%D0%B5%D0%BD%D0%B8%D0%B5%20%D1%81%D0%BF%D0%BE%D0%BD%D1%81%D0%BE%D1%80%D0%BE%D0%B2/`
+    window.open(fullUrl, '_blank', 'noopener,noreferrer')
     return
   }
+  if (tabId === 'database-work') {
+    toggleDatabaseMenu()
+    return
+  }
+  if (tabId === 'reports') {
+    toggleReportsMenu()
+    return
+  }
+  isDatabaseMenuOpen.value = false
+  isReportsMenuOpen.value = false
+  openReportsGroups.value = []
   activeWorkspaceTab.value = tabId
 }
 
@@ -1785,12 +1869,14 @@ const filteredAssignedOptions = computed(() => {
 
 const filteredDealsForEvents = computed(() => {
   const selectedCategory = new Set(asArray(filters.value.selected.category).map(String))
-  const selectedAssigned = new Set(asArray(filters.value.selected.assigned).map(String))
   const selectedEvents = new Set(asArray(filters.value.selected.events).map(String))
 
+  // Фильтр "Ответственный" сюда намеренно не применяется: агрегаты по
+  // мероприятию (% сбора, суммы) должны считаться по всем сделкам мероприятия,
+  // а не только по сделкам выбранного ответственного. Какие мероприятия
+  // показывать при выборе ответственного — решает eventMatchesAssignedFilter.
   const filtered = deals.value.filter((deal) => {
     if (selectedCategory.size && !selectedCategory.has(String(deal.STAGE_ID))) return false
-    if (selectedAssigned.size && !selectedAssigned.has(String(deal.ASSIGNED_BY_ID))) return false
     if (selectedEvents.size && !selectedEvents.has(String(deal.UF_CRM_1742797326))) return false
     return true
   })
@@ -1800,7 +1886,6 @@ const filteredDealsForEvents = computed(() => {
     dealsTotal: deals.value.length,
     filteredCount: filtered.length,
     selectedCategorySize: selectedCategory.size,
-    selectedAssignedSize: selectedAssigned.size,
     selectedEventsSize: selectedEvents.size,
     firstDeal: filtered[0] ? {
       ID: filtered[0].ID,
@@ -2167,13 +2252,15 @@ function buildAudienceOptions(eventItems) {
     items.forEach((item) => {
       if (typeof item === 'object' && item != null) {
         const id = String(item.id ?? item.ID ?? item.value ?? item.VALUE ?? item.title ?? item.TITLE ?? '')
-        const title = String(item.title ?? item.TITLE ?? directoryTitleMap.get(id) ?? item.value ?? item.VALUE ?? id)
-        if (id) map.set(id, { id, title })
+        if (!id || !directoryTitleMap.has(id)) return
+        const title = directoryTitleMap.get(id)
+        map.set(id, { id, title })
         return
       }
 
       const value = String(item)
-      if (value) map.set(value, { id: value, title: directoryTitleMap.get(value) || value })
+      if (!value || !directoryTitleMap.has(value)) return
+      map.set(value, { id: value, title: directoryTitleMap.get(value) })
     })
   })
 
@@ -2895,10 +2982,7 @@ function buildFilterSignature() {
 
   return JSON.stringify({
     departments: ids(filters.value.selected.departments),
-    assigned: ids(filters.value.selected.assigned),
-    events: ids(filters.value.selected.events),
     category: ids(filters.value.selected.category),
-    audience: ids(filters.value.selected.audience),
     dateName: selectedDateName.value,
     dateFrom: selectedDateIso.value?.[0] || null,
     dateTo: selectedDateIso.value?.[1] || null,
@@ -2933,10 +3017,7 @@ function scheduleFilterAutoRefresh() {
 watch(
   () => [
     filters.value.selected.departments,
-    filters.value.selected.assigned,
-    filters.value.selected.events,
     filters.value.selected.category,
-    filters.value.selected.audience,
     selectedDateName.value,
     selectedDateIso.value,
   ],
@@ -3025,26 +3106,24 @@ const getData = async () => {
   await loadEventChecklists(events.value)
   filters.value.value.audience = buildAudienceOptions(events.value)
 
-  // Дата = период мероприятий: сначала ID событий, потом сделки только по ним
+  // Дата = период мероприятий: сначала ID событий, потом сделки только по ним.
+  // Фильтр по конкретным выбранным мероприятиям намеренно не передаём сюда —
+  // он применяется на клиенте (filteredDealsForEvents/table1Filtered), чтобы
+  // смена выбранных мероприятий не требовала повторной загрузки с сервера.
   const filterEvents = resolveReportEventIds(
     events.value,
     dateFrom,
     dateTo,
-    selectedEvents,
   )
 
-  // Ответственный не выбран — фильтр по нему в запрос не уходит
-  const filterAssigned = asArray(filters.value.selected.assigned)
-  const assignedFilterPart = filterAssigned.length
-    ? { ASSIGNED_BY_ID: filterAssigned }
-    : {}
+  // Ответственный фильтруется на клиенте (table1Filtered), в запрос не передаём,
+  // чтобы смена ответственного не требовала повторной загрузки с сервера
+  // и не влияла на агрегаты по мероприятию (% сбора и т.п.)
 
   // Используем DYNAMIC_1052 вместо UF_CRM_1742797326 для handler
   const eventIdsForFilter = filterEvents.length
     ? filterEvents
-    : (selectedEvents.length
-      ? selectedEvents.map(String)
-      : asArray(filters.value.value.events).map((item) => String(item.id)))
+    : asArray(filters.value.value.events).map((item) => String(item.id))
 
   // eslint-disable-next-line no-console
   console.log('🔍 [getData] Event filter debug:', {
@@ -3058,7 +3137,6 @@ const getData = async () => {
 
   const dealFiltersForEvents = {
     STAGE_ID: filterCategory,
-    ...assignedFilterPart,
     ...eventFilter,
   }
 
@@ -3276,6 +3354,14 @@ const getData = async () => {
     overflow-y: visible
     box-sizing: border-box
 
+  .report-page__zoom
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    width: 100%
+    flex: 1 1 auto
+    min-height: 0
+
   .report-page .v-data-table:not(.sticky-report-table)
     width: 100%
     max-width: 100%
@@ -3293,35 +3379,6 @@ const getData = async () => {
     align-items: center
     gap: 1rem
     margin-bottom: 0.75rem
-
-  .report-table-zoom
-    display: flex
-    flex-direction: column
-    width: 100%
-
-  .app-zoom
-    display: flex
-    align-items: center
-    gap: 0.75rem
-    flex: 0 0 auto
-    margin-left: auto
-
-    &__label
-      font-size: 0.75rem
-      font-weight: 600
-      color: #64748b
-      white-space: nowrap
-
-    &__slider
-      flex: 1 1 auto
-      min-width: 6rem
-
-    &__value
-      min-width: 2.75rem
-      font-size: 0.75rem
-      font-weight: 700
-      color: #0f172a
-      text-align: right
 
   .report-table-card
     display: flex
@@ -3793,7 +3850,7 @@ const getData = async () => {
       font-weight: 500
       font-size: 0.875rem
       line-height: 1.25
-      border-radius: 8px
+      border-radius: 0.25rem
       box-shadow: none
       min-height: 40px
       height: 40px
@@ -3808,34 +3865,35 @@ const getData = async () => {
 
     .report-btn--outlined
       background: #ffffff !important
-      border: 1px solid #e0e0e0 !important
-      color: #0066ff !important
+      border: 1px solid #d1d5db !important
+      color: #111827 !important
 
       .v-btn__overlay,
       .v-btn__underlay
         opacity: 0
 
       .v-icon
-        color: #0066ff !important
+        color: #111827 !important
 
       &:hover
-        background: #f8fafc !important
+        background: #f9fafb !important
+        border-color: #9ca3af !important
 
     .report-btn--filled
-      background: #0066ff !important
-      border: 1px solid #0066ff !important
-      color: #ffffff !important
+      background: #ffffff !important
+      border: 1px solid #d1d5db !important
+      color: #111827 !important
 
       .v-btn__overlay,
       .v-btn__underlay
         opacity: 0
 
       .v-icon
-        color: #ffffff !important
+        color: #111827 !important
 
       &:hover
-        background: #0052cc !important
-        border-color: #0052cc !important
+        background: #f9fafb !important
+        border-color: #9ca3af !important
 
   .filter-card,
   .summary-card,
@@ -3857,12 +3915,15 @@ const getData = async () => {
   .workspace-tabs
     display: flex
     flex-wrap: nowrap
+    align-items: stretch
     width: 100%
     gap: 0.5rem
 
   .workspace-tabs__item
     flex: 1 1 0
     min-width: 0
+    width: 100%
+    height: 100%
     text-align: center
     border: 1px solid #dbe3ee
     border-radius: 0.75rem
@@ -3874,6 +3935,12 @@ const getData = async () => {
     line-height: 1.2
     padding: 0.65rem 1rem
     cursor: pointer
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    text-align: center
+    white-space: normal
+    gap: 0.4rem
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease
 
     &:hover:not(.workspace-tabs__item--active)
@@ -3885,6 +3952,21 @@ const getData = async () => {
       border-color: #2563eb
       color: #ffffff
       box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22)
+
+  .workspace-tabs__item-wrap
+    position: relative
+    display: flex
+    align-items: stretch
+    flex: 1 1 0
+    min-width: 0
+
+  .workspace-tabs__chevron
+    font-size: 0.7rem
+    line-height: 1
+
+  .workspace-tabs__zoom
+    flex: 0 0 auto
+    margin-left: 0.5rem
 
   .workspace-tab-empty
     display: flex
@@ -3899,71 +3981,70 @@ const getData = async () => {
     text-align: center
     padding: 1.5rem
 
-  .reports-menu
-    display: flex
-    flex-direction: column
-    gap: 0.65rem
-    max-width: 640px
+  .database-menu__popup
+    position: absolute
+    z-index: 20
+    top: calc(100% + 0.35rem)
+    left: 0
+    right: 0
+    min-width: 15rem
+    padding: 0.45rem
+    border: 1px solid #dce2ea
+    border-radius: 0.625rem
+    background: #ffffff
+    box-shadow: 0 12px 28px rgba(23, 43, 77, 0.13)
 
-  .reports-menu__group
-    border: 1px solid #e2e8f0
-    border-radius: 0.85rem
-    background: #fff
-    overflow: hidden
-
-    &--open
-      border-color: #93c5fd
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.12)
-
-  .reports-menu__row
+  .database-menu__popup-item
+    display: block
+    width: 100%
+    padding: 0.7rem 0.75rem
+    border: 0
+    border-radius: 0.45rem
+    background: transparent
+    color: #263447
+    font: inherit
+    font-size: 0.875rem
+    text-align: left
+    cursor: pointer
+    transition: background-color 0.15s ease, color 0.15s ease
     display: flex
     align-items: center
-    gap: 0.85rem
-    width: 100%
-    padding: 0.85rem 1rem
-    border: 0
-    background: transparent
-    color: #0f172a
-    cursor: pointer
-    text-align: left
+    gap: 0.5rem
 
     &:hover
-      background: #f8fafc
+      background: #eef3ff
+      color: #2864df
 
-    &--child
-      padding-left: 1.15rem
-      border-top: 1px solid #edf2f7
-
-  .reports-menu__icon
+  .database-menu__popup-icon
     display: inline-flex
     align-items: center
     justify-content: center
-    width: 2.5rem
-    height: 2.5rem
-    flex: 0 0 auto
-    border-radius: 0.65rem
-    background: #eff6ff
-    color: #2563eb
+    flex-shrink: 0
 
-    &--child
-      width: 2.15rem
-      height: 2.15rem
-      background: #f1f5f9
-      color: #475569
+  .database-menu__popup-item--child
+    padding-left: 2.1rem
 
-  .reports-menu__title
-    flex: 1 1 auto
-    min-width: 0
-    font-size: 0.9375rem
-    font-weight: 600
-    line-height: 1.3
+  .reports-menu__popup
+    display: flex
+    flex-direction: column
+    gap: 0.15rem
+    min-width: 22rem
+    max-width: 26rem
+    max-height: 70vh
+    overflow-y: auto
+
+  .reports-menu__group
+    display: flex
+    flex-direction: column
 
   .reports-menu__chevron
     flex: 0 0 auto
+    margin-left: auto
     color: #94a3b8
 
   .reports-menu__children
-    background: #fff
+    display: flex
+    flex-direction: column
 
   .filter-card .filters
     display: grid

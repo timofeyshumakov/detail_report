@@ -664,7 +664,7 @@ const selectedAudienceFilter = ref('');
   contacts.value.forEach(contact => {
     if (contact.UF_CRM_1753364801 && contact.UF_CRM_1753364801.length > 0) {
       contact.UF_CRM_1753364801.forEach(audienceId => {
-        const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+        const audienceTitle = audienceTitles.value.get(String(audienceId));
         if (audienceTitle && audienceTitle.trim() !== '' && !allAudienceIds.has(String(audienceId))) {
           allAudienceIds.add(String(audienceId));
           options.push({

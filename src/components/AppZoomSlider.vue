@@ -1,5 +1,5 @@
 <template>
-  <div class="app-zoom" aria-label="Масштаб таблицы">
+  <div class="app-zoom" aria-label="Масштаб приложения">
     <button
       type="button"
       class="app-zoom__btn"

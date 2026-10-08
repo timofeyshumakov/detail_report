@@ -428,6 +428,36 @@
                       >
                         Контакты по ЦА
                       </button>
+                      <div class="deal-company__med-menu">
+                        <button
+                          type="button"
+                          class="deal-company__audience-btn"
+                          title="Мед. товары по ЦА"
+                          @click.stop="toggleMedicalCatalogMenu(deal)"
+                        >
+                          Мед. товары по ЦА
+                        </button>
+                        <div
+                          v-if="isMedicalCatalogMenuOpen(deal.ID)"
+                          class="deal-company__med-menu-popup"
+                          @click.stop
+                        >
+                          <button
+                            type="button"
+                            class="deal-company__med-menu-item"
+                            @click="openMedicalCatalog(deal, 'medications')"
+                          >
+                            Препараты
+                          </button>
+                          <button
+                            type="button"
+                            class="deal-company__med-menu-item"
+                            @click="openMedicalCatalog(deal, 'equipment')"
+                          >
+                            Оборудование
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </td>
                   <td class="col-responsible">
@@ -1239,6 +1269,7 @@ const commerceFilterLoading = ref(false)
 const page = ref(1)
 const selectedDealIds = ref([])
 const openActionMenu = ref(null)
+const openMedicalCatalogDealId = ref(null)
 const savingStageDealId = ref(null)
 const failedAvatars = ref(new Set())
 const editingCell = ref({
@@ -1444,6 +1475,51 @@ function emitAction(eventName) {
 
 function onDocumentClick() {
   openActionMenu.value = null
+  openMedicalCatalogDealId.value = null
+}
+
+function isMedicalCatalogMenuOpen(dealId) {
+  return openMedicalCatalogDealId.value != null && String(openMedicalCatalogDealId.value) === String(dealId)
+}
+
+function toggleMedicalCatalogMenu(deal) {
+  const dealId = deal?.ID
+  if (dealId == null) return
+  openMedicalCatalogDealId.value = isMedicalCatalogMenuOpen(dealId) ? null : dealId
+}
+
+const MEDICATION_CATALOG_PATH = '/page/spravochniki/pgirfw/type/189/'
+const EQUIPMENT_CATALOG_PATH = '/page/spravochniki/oborudovanie/type/1104/details/'
+
+function buildCompanyCatalogPath(basePath, companyId, companyTitle) {
+  if (!companyId) return basePath
+
+  const params = new URLSearchParams()
+  params.set('apply_filter', 'Y')
+  params.set('COMPANY_ID', String(companyId))
+  if (companyTitle) {
+    params.set('COMPANY_ID_label', String(companyTitle))
+  }
+  return `${basePath}?${params.toString()}`
+}
+
+async function openMedicalCatalog(deal, type) {
+  openMedicalCatalogDealId.value = null
+  if (!deal?.ID) return
+
+  await resolveDealsCompanyIds([deal])
+  const companyId = deal.COMPANY_ID || deal.companyId || normalizeIdList(deal.COMPANY_IDS)[0] || null
+  const basePath = type === 'equipment' ? EQUIPMENT_CATALOG_PATH : MEDICATION_CATALOG_PATH
+  const path = buildCompanyCatalogPath(basePath, companyId, companyName(deal))
+
+  if ((window as any).BX24?.openPath) {
+    (window as any).BX24.openPath(path, true)
+    return
+  }
+
+  const domain = (window as any).BX24?.getAuth?.()?.domain
+  const origin = domain ? `https://${domain}` : window.location.origin
+  window.open(`${origin}${path}`, '_blank', 'noopener,noreferrer')
 }
 
 onMounted(() => {
@@ -4762,6 +4838,43 @@ watch(
 .deal-company__audience-btn:hover {
   background: #eff6ff;
   border-color: #93c5fd;
+}
+
+.deal-company__med-menu {
+  position: relative;
+}
+
+.deal-company__med-menu-popup {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  min-width: 10rem;
+  padding: 0.3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(23, 43, 77, 0.14);
+}
+
+.deal-company__med-menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #263447;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.deal-company__med-menu-item:hover {
+  background: #eef3ff;
+  color: #2864df;
 }
 
 .deal-company__open {
