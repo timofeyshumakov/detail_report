@@ -4747,6 +4747,13 @@ watch(
   color: #334155;
 }
 
+.event-deals-table td.deal-company-cell,
+.event-deals-table td.deal-company-cell * {
+  overflow-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+}
+
 .event-deals-table th:last-child,
 .event-deals-table td:last-child {
   border-right: 0;
@@ -4794,6 +4801,9 @@ watch(
   align-items: flex-start;
   gap: 0.35rem;
   min-width: 155px;
+  max-width: 300px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .deal-company__text {
@@ -4813,6 +4823,9 @@ watch(
   line-height: 1.25;
   text-align: left;
   cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .deal-company__deal-link:hover {
