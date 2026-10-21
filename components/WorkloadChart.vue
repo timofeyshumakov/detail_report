@@ -32,7 +32,8 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { ref, onMounted, watch, computed } from 'vue';
 import Chart from 'chart.js/auto';
 import { format, parseISO, eachDayOfInterval, isWeekend, isSameDay, addDays } from 'date-fns';

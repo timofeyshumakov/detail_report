@@ -53,10 +53,11 @@
                         )
 </template>
 
-<script lang="js">
+<script lang="ts">
+// @ts-nocheck
 import Date from './Date/Date.vue';
-import { useParseStore } from '../../stores/store.js'; 
-import { useMyStore } from '../../stores/store.js'; 
+import { useParseStore } from '../../stores/store'; 
+import { useMyStore } from '../../stores/store'; 
 import { callApi } from '../../functions/callApi.ts';
 
 export default {

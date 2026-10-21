@@ -197,7 +197,8 @@
   </v-app>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { ref, computed, onMounted, watch } from 'vue';
 import TheForm from '../components/TheForm/TheForm.vue';
 import moment from 'moment';
@@ -255,12 +256,12 @@ const itemsTableHeaders = ref([
         { title: 'Дедлайн по SLA', value: 'ufCrm_47_1752010416', sortable: true },
 ]);
 
-function findUserNameById(userId, usersArray) {
+function findUserNameById(userId: any, usersArray: any) {
   const user = usersArray.find(user => user.ID == userId);
   return user ? user.FULL_NAME : 'Неизвестный';
 }
 
-function formatFullName(userData = {}) {
+function formatFullName(userData: any = {}) {
   const { LAST_NAME, NAME, SECOND_NAME } = userData;
   
   // Собираем все имеющиеся части имени
@@ -301,7 +302,7 @@ const handleDataUpdate = async(data) => {
   replaceIdsWithNames(data, fields.value);
 }
 
-function formatMillisecondsToDHM(ms, d) {
+function formatMillisecondsToDHM(ms: any, d: any) {
   const duration = moment.duration(ms);
   
   const days = Math.floor(duration.asDays());
@@ -314,7 +315,7 @@ function formatMillisecondsToDHM(ms, d) {
   }
 }
 
-function replaceIdsWithNames(data, fieldDefinitions) {
+function replaceIdsWithNames(data: any, fieldDefinitions: any) {
    data.map(item => {
     console.log(item);
     const newItem = {};

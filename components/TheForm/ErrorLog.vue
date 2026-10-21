@@ -9,7 +9,8 @@
         v-btn(color="red" @click="closeDialog") Закрыть
 </template>
 
-<script>
+<script lang="ts">
+// @ts-nocheck
 export default {
   name: 'ErrorDialog',
   props: {

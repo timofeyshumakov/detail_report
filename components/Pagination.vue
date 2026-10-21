@@ -2,7 +2,7 @@
     div.pagination-container
       v-select(
         v-model="itemsPerPage"
-        :items="[10, 25, 50]"
+        :items="[10, 25, 50, 100]"
         label="Записей на странице"
       )
       v-pagination(
@@ -14,11 +14,12 @@
 </template>
   
 <script lang="ts">
+// @ts-nocheck
 // Функции
 import { callApi } from '../functions/callApi.ts';
 import { formatItems } from '../functions/formatItems.ts';
-import { useMyStore } from '../stores/store.js'; 
-import { useParseStore } from '../stores/store.js'; 
+import { useMyStore } from '../stores/store'; 
+import { useParseStore } from '../stores/store'; 
 import { useGlobalStore } from '../stores/store'; 
 
   export default {

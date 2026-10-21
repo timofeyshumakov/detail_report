@@ -77,7 +77,8 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { computed, ref, onMounted } from 'vue'
 import { useScoringStore } from '../stores/scoring'
 import { calculateScoring, validateScore } from '../utils/scoringCalculations'

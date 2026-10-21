@@ -16,7 +16,7 @@
               color="primary"
               :max="maxDate"
               :min="minDate"
-              v-model="selectedRange[0]"
+              v-model="localSelectedRange[0]"
               title="Начальная дата"
               @update:modelValue="updateSelectedRange"
             )
@@ -25,7 +25,7 @@
               color="primary"
               :max="maxDate"
               :min="minDate"
-              v-model="selectedRange[1]"
+              v-model="localSelectedRange[1]"
               title="Конечная дата"
               @update:modelValue="updateSelectedRange"
             )
@@ -35,13 +35,14 @@
             color="primary"
             :max="maxDate"
             :min="minDate"
-            v-model="selectedDay"
+            v-model="localSelectedDay"
             title="Выберите день"
             @update:modelValue="updateSelectedDay"
           )
 </template>
 
-<script>
+<script lang="ts">
+// @ts-nocheck
 export default {
   props: {
     showInput: {
@@ -68,18 +69,18 @@ export default {
   emits: ['update:selectedRange', 'update:selectedDay'],
   data() {
     return {
-      selectedDay: this.selectedDay,
-      selectedRange: this.selectedRange,
+      localSelectedDay: this.selectedDay,
+      localSelectedRange: [...this.selectedRange],
       panel: [0],
     };
   },
   methods: {
     updateSelectedDay(value) {
-      this.selectedDay = value;
+      this.localSelectedDay = value;
       this.$emit('update:selectedDay', value);
     },
     updateSelectedRange() {
-      this.$emit('update:selectedRange', this.selectedRange);
+      this.$emit('update:selectedRange', [...this.localSelectedRange]);
     },
   },
 };

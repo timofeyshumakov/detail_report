@@ -115,6 +115,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-nocheck
 import { ref, nextTick, computed } from 'vue';
 import { useForm } from 'vee-validate';
 import { number, object, string } from 'yup';

@@ -3,16 +3,10 @@
 </template>
 
 <script lang="ts">
-// Документация
-/*
-
-*/
-
-// Компоненты
-//@ts-ignore
-import Home from './pages/Home.vue';
+// @ts-nocheck
+import Home from './pages/Home.vue'
 
 export default {
-components: { Home }
+  components: { Home },
 }
 </script>

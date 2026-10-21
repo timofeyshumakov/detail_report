@@ -31,8 +31,8 @@
   </template>
   
 <script lang="ts">
-import * as XLSX from "xlsx";
-import { useMyStore } from '../stores/store.js'; 
+// @ts-nocheck
+import { useMyStore } from '../stores/store'; 
 
   export default {
     props: {

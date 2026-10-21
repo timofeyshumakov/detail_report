@@ -31,7 +31,8 @@
           v-icon(icon="mdi-plus" color="primary")
 </template>
 
-<script>
+<script lang="ts">
+// @ts-nocheck
 export default {
   props: {
     showInput: {

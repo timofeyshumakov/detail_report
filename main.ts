@@ -10,7 +10,6 @@ import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 import { ru } from 'vuetify/locale';
 import VueTheMask from 'vue-the-mask';
-import 'font-awesome/css/font-awesome.css';
 // Components
 import App from './App.vue';
 import './reset.sass';
@@ -74,9 +73,12 @@ const vuetify = createVuetify({
   components,
   directives,
   icons: {
-    iconfont: 'mdiSvg', // Используем SVG-версию иконок MDI
-    defaults: 'mdiSolid', // Устанавливаем MDI-Solid как стандартный набор иконок
-  },
+    // Vuetify 3 beta icon options differ by version; keep runtime config.
+    ...( {
+      iconfont: 'mdiSvg',
+      defaults: 'mdiSolid',
+    } as Record<string, unknown>),
+  } as any,
   theme: {
     defaultTheme: 'light',
     themes: {

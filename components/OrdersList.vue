@@ -37,7 +37,8 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 

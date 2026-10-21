@@ -4,7 +4,8 @@
   </div>
 </template>
 
-<script>
+<script lang="ts">
+// @ts-nocheck
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,

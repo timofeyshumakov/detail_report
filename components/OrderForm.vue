@@ -46,7 +46,8 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { ref, computed } from 'vue';
 import { useDisplay } from 'vuetify';
 

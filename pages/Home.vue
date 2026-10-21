@@ -16,8 +16,12 @@
     </v-snackbar>
     <v-main class="report-page">
       <header class="report-header">
-        <div>
-          <h1>Категории + активность</h1>
+        <div class="report-header__brand">
+          <img
+            :src="crmLogo"
+            alt="ЦРМ — Цифровое рабочее место"
+            class="report-header__logo"
+          />
         </div>
         <div class="report-actions buttons">
           <v-btn
@@ -36,8 +40,93 @@
         </div>
       </header>
 
-      <section class="filter-card panel">
-        <div class="filters">
+      <div class="report-page__zoom" :style="zoomStyle">
+      <section class="filter-card panel workspace-panel">
+        <div class="workspace-tabs" role="tablist" aria-label="Разделы рабочего места">
+          <div
+            v-for="tab in workspaceTabs"
+            :key="tab.id"
+            class="workspace-tabs__item-wrap"
+          >
+            <button
+              type="button"
+              role="tab"
+              class="workspace-tabs__item"
+              :class="{ 'workspace-tabs__item--active': activeWorkspaceTab === tab.id }"
+              :aria-selected="activeWorkspaceTab === tab.id"
+              @click="onWorkspaceTabClick(tab.id)"
+            >
+              {{ tab.title }}
+              <span v-if="tab.id === 'database-work' || tab.id === 'reports'" class="workspace-tabs__chevron">▾</span>
+            </button>
+
+            <div
+              v-if="tab.id === 'database-work' && isDatabaseMenuOpen"
+              class="database-menu__popup"
+            >
+              <button
+                v-for="child in databaseMenuChildren"
+                :key="child.id"
+                type="button"
+                class="database-menu__popup-item"
+                @click="openDatabasePath(child.path)"
+              >
+                <span class="database-menu__popup-icon" aria-hidden="true">
+                  <v-icon size="18" :icon="child.icon" />
+                </span>
+                <span>{{ child.title }}</span>
+              </button>
+            </div>
+
+            <div
+              v-if="tab.id === 'reports' && isReportsMenuOpen"
+              class="database-menu__popup reports-menu__popup"
+            >
+              <div
+                v-for="item in reportsMenu"
+                :key="item.id"
+                class="reports-menu__group"
+                :class="{ 'reports-menu__group--open': isReportsGroupOpen(item) }"
+              >
+                <button
+                  type="button"
+                  class="database-menu__popup-item"
+                  @click="onReportsMenuItemClick(item)"
+                >
+                  <span class="database-menu__popup-icon" aria-hidden="true">
+                    <v-icon size="18" :icon="item.icon" />
+                  </span>
+                  <span>{{ item.title }}</span>
+                  <v-icon
+                    v-if="item.children"
+                    class="reports-menu__chevron"
+                    size="16"
+                    :icon="isReportsGroupOpen(item) ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+                  />
+                </button>
+
+                <div v-if="item.children && isReportsGroupOpen(item)" class="reports-menu__children">
+                  <button
+                    v-for="child in item.children"
+                    :key="child.id"
+                    type="button"
+                    class="database-menu__popup-item database-menu__popup-item--child"
+                    @click="openReportLink(child.url)"
+                  >
+                    <span class="database-menu__popup-icon" aria-hidden="true">
+                      <v-icon size="16" :icon="child.icon" />
+                    </span>
+                    <span>{{ child.title }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <AppZoomSlider class="workspace-tabs__zoom" />
+        </div>
+
+        <div v-if="activeWorkspaceTab === 'digital-workplace'" class="filters">
           <div class="filter-item">
             <span class="filter-label">Группа</span>
             <v-autocomplete
@@ -199,15 +288,19 @@
           <div class="filter-item filter-item--period">
             <span class="filter-label">Дата</span>
             <DateFilter
+              ref="dateFilterRef"
               class="period-date-filter"
               :key="dateFilterKey"
               :show-input="dateFilterShowInput"
               :selected-date-name="selectedDateName"
               :selected-date-iso="selectedDateIso"
+              @update:selectedDateName="onDateFilterNameChange"
               @sendValue="onDateFilterChange"
             />
           </div>
         </div>
+
+        <div v-if="activeWorkspaceTab !== 'digital-workplace' && activeWorkspaceTab !== 'database-work' && activeWorkspaceTab !== 'reports'" class="workspace-tab-empty" aria-hidden="true" />
       </section>
 
       <section class="summary-cards">
@@ -249,21 +342,67 @@
         <v-data-table
           :items="groupedEvents"
           :headers="headers2"
-          class="report-data-table activity-report-table sticky-report-table"
-          disable-sort
-          :items-per-page="-1"
+          class="report-data-table report-data-table--paginated activity-report-table sticky-report-table"
+          :items-per-page="100"
         >
           <template v-slot:item.event="{ item }">
-            <button
-              v-if="item.UF_CRM_1742797326"
-              type="button"
-              class="event-link"
-              :title="`Открыть сделки: ${item.event}`"
-              @click="openDealsByEvent(item.UF_CRM_1742797326, item.event)"
-            >
-              {{ item.event }}
-            </button>
-            <span v-else>{{ item.event }}</span>
+            <div class="event-cell">
+              <div class="event-cell__title-row">
+                <button
+                  v-if="item.UF_CRM_1742797326"
+                  type="button"
+                  class="event-link"
+                  :title="'Открыть сделки: ' + item.event"
+                  @click="openEventDealsDialog(item)"
+                >
+                  {{ item.event }}
+                </button>
+                <span v-else>{{ item.event }}</span>
+
+                <button
+                  v-if="item.UF_CRM_1742797326"
+                  type="button"
+                  class="event-open-btn"
+                  title="Открыть мероприятие в Bitrix"
+                  aria-label="Открыть мероприятие в Bitrix"
+                  @click.stop="openEventInBitrix(item)"
+                >
+                  <v-icon size="14" icon="mdi-view-grid-outline" />
+                  <v-icon size="14" icon="mdi-arrow-right" />
+                </button>
+              </div>
+
+              <div class="event-checklist-inline">
+                <button
+                  v-if="getEventChecklist(item)?.itemId"
+                  type="button"
+                  class="event-checklist-inline__tag"
+                  title="Открыть чек-лист"
+                  @click.stop="openEventChecklistFromTable(item)"
+                >
+                  <span>
+                    Чек-лист
+                    {{ getEventChecklist(item).filled }}/{{ getEventChecklist(item).total }}
+                  </span>
+                  <span class="event-checklist-inline__bar" aria-hidden="true">
+                    <span
+                      class="event-checklist-inline__fill"
+                      :class="getChecklistBarClass(getEventChecklist(item).percent)"
+                      :style="{ width: `${getEventChecklist(item).percent}%` }"
+                    />
+                  </span>
+                </button>
+                <button
+                  v-else-if="item.UF_CRM_1742797326"
+                  type="button"
+                  class="event-checklist-inline__create"
+                  title="Создать чек-лист"
+                  @click.stop="createEventChecklistFromTable(item)"
+                >
+                  Создать чек-лист
+                </button>
+              </div>
+            </div>
           </template>
           <template v-slot:item.audience="{ item }">
             {{ item.audience }}
@@ -279,18 +418,18 @@
                   <img
                     v-if="getUserPhoto(managerId)"
                     :src="getUserPhoto(managerId)"
-                    :alt="getUserNameById(managerId)"
+                    :alt="getUserShortNameById(managerId)"
                     class="avatar-image"
                     loading="lazy"
                     referrerpolicy="no-referrer"
                     @error="markAvatarFailed(getUserPhoto(managerId))"
                   />
                   <span v-else class="avatar-initials">
-                    {{ getUserInitials(getUserNameById(managerId)) }}
+                    {{ getUserInitials(getUserShortNameById(managerId)) }}
                   </span>
                 </v-avatar>
-                <span class="responsible-name" :title="getUserNameById(managerId)">
-                  {{ getUserNameById(managerId) }}
+                <span class="responsible-name" :title="getUserShortNameById(managerId)">
+                  {{ getUserShortNameById(managerId) }}
                 </span>
               </div>
             </div>
@@ -305,7 +444,7 @@
                 <div
                   class="percent-cell__fill"
                   :class="getPercentBarClass(item.percent)"
-                  :style="{ width: `${visualPercent(item.percent)}%` }"
+                  :style="{ width: visualPercent(item.percent) + '%' }"
                 />
               </div>
             </div>
@@ -314,7 +453,7 @@
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.summ) }}
           </template>
           <template v-slot:item.over="{ item }">
-            {{ item.over > 0 ? new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.over) : "" }}
+            {{ formatOverCurrency(item.over) }}
           </template>
           <template v-slot:item.planProfit="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.planProfit) }}
@@ -328,53 +467,16 @@
           <template v-slot:item.pd="{ item }">
             {{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(item.pd) }}
           </template>
-          <template v-slot:item.actions="{ item }">
-            <div class="event-actions">
-              <v-menu
-                location="bottom end"
-                :offset="[0, 8]"
-                content-class="event-actions-menu-wrapper"
-              >
-                <template #activator="{ props }">
-                  <v-btn
-                    v-bind="props"
-                    variant="outlined"
-                    size="small"
-                    class="event-actions-trigger"
-                    :disabled="!item.UF_CRM_1742797326"
-                    aria-label="Действия"
-                  >
-                    <v-icon icon="mdi-dots-horizontal" />
-                  </v-btn>
-                </template>
-                <v-list class="event-actions-menu" density="compact" nav>
-                  <v-list-item
-                    class="event-actions-menu__item"
-                    prepend-icon="mdi-plus"
-                    title="Точечное добавление"
-                    @click="openPreciseDealForEvent(item)"
-                  />
-                  <v-list-item
-                    class="event-actions-menu__item"
-                    prepend-icon="mdi-account-multiple-outline"
-                    title="Массовая генерация"
-                    @click="openMassGenerationForEvent(item)"
-                  />
-                </v-list>
-              </v-menu>
-            </div>
-          </template>
           <template v-slot:tfoot>
             <tfoot>
               <tr class="v-data-table__footer-row">
                 <td colspan="5" class="report-table-footer-label">Итого:</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.summ) }}</td>
-                <td>{{ totalRow2.over > 0 ? new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.over) : '' }}</td>
+                <td>{{ formatOverCurrency(totalRow2.over) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.planProfit) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.pot) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.dog) }}</td>
                 <td>{{ new Intl.NumberFormat("ru-RU", { style: "currency", currency: "RUB" }).format(totalRow2.pd) }}</td>
-                <td></td>
               </tr>
             </tfoot>
           </template>
@@ -391,6 +493,7 @@
           :items="table1Filtered"
           :headers="headers"
           class="report-data-table report-data-table--paginated sticky-report-table"
+          :items-per-page="10"
           disable-sort
         >
           <template v-slot:item.ASSIGNED_BY_ID="{ item }">
@@ -455,6 +558,7 @@
         </v-card>
       </section>
     <img v-if="screenshotSrc" ref="screenshotImg" :src="screenshotSrc" alt="Скриншот страницы" id="screenshotImg"/>
+      </div>
   <div>
     <!-- Диалоговое окно выбора чата -->
     <v-dialog v-model="dialog" max-width="600">
@@ -510,47 +614,311 @@
       </v-card>
     </v-dialog>
 
+    <EventDealsDialog
+      v-model="eventDealsDialog.open"
+      :event="eventDealsDialog.event"
+      :deals="eventDealsDialog.deals"
+      :event-metrics="eventDealsDialogMetrics"
+      :user-profiles="userProfilesById"
+      :refreshing="eventDealsDialog.refreshing"
+      :science-exporting="eventDealsDialog.scienceExporting"
+      @precise-deal="openPreciseDealForEvent(getEventDealsActionItem())"
+      @mass-generation="openMassGenerationForEvent(getEventDealsActionItem())"
+      @create-company="openCreateCompanyForEvent(getEventDealsActionItem())"
+      @send-mailing="onEventActionMock(getEventDealsActionItem(), 'Отправить рассылку')"
+      @welcome-mailing="openWelcomeMailingForEvent(getEventDealsActionItem())"
+      @export-excel="exportEventExcel(getEventDealsActionItem())"
+      @export-science="exportEventScienceProgram(getEventDealsActionItem())"
+      @stage-updated="handleEventDealStageUpdated"
+      @field-updated="handleEventDealFieldUpdated"
+      @refresh="refreshEventDealsDialog"
+    />
+
     <DealGeneratorDialog
       v-model="dealGeneratorDialog.open"
       :mode="dealGeneratorDialog.mode"
       :event="dealGeneratorDialog.event"
+      @generated="onDealGeneratorCompleted"
+    />
+
+    <WelcomeMailingDialog
+      v-model="welcomeMailingDialog.open"
+      :event="welcomeMailingDialog.event"
+    />
+
+    <ChecklistTypeDialog
+      v-model="checklistTypeDialog.open"
+      @select="createEventChecklistOfType"
     />
   </div>
     </v-main>
   </v-app>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { callApi, getListElements } from '../functions/callApi';
+import { callApi, callBxMethod, getListElements } from '../functions/callApi';
 import { useStickyReportTableHeaders } from '../composables/useStickyReportTableHeaders';
 import moment from 'moment';
 import html2canvas from 'html2canvas'; // подключаем библиотеку
 import DateFilter from '../components/TheForm/Date/Date.vue';
 import LoadingProgress from '../components/LoadingProgress.vue';
 import DealGeneratorDialog from '../components/DealGeneratorDialog.vue';
+import WelcomeMailingDialog from '../components/WelcomeMailingDialog.vue';
+import EventDealsDialog from '../components/EventDealsDialog.vue';
+import ChecklistTypeDialog from '../components/ChecklistTypeDialog.vue';
 import { useSnackbar } from '../composables/useSnackbar';
-import { buildCompanyTableDateFilter, formatDateFilterRange, isDealWithinDateRange, isEventWithinDateRange } from '../functions/dateFilter';
+import { formatDateFilterRange, isDealWithinDateRange, isEventWithinDateRange } from '../functions/dateFilter';
+import {
+  DEAL_SELECT_FIELDS_WITH_COMMENTS,
+  EVENT_DEAL_STAGES,
+  buildEventDealFilter,
+  fetchDealsFromHandler,
+} from '../functions/reportHandler';
+import { BitrixRateLimitError, setBitrixRateLimitNotifier } from '../functions/bitrixRateLimit';
+import {
+  ensureUsersByIds,
+  registerUserProfile,
+  mapUserForAssignedFilter,
+  userProfilesById,
+  usersById,
+  USER_SELECT_FIELDS,
+} from '../functions/userProfiles';
+import { exportEventReportToExcel, EXPORT_DEAL_STAGE_IDS } from '../functions/exportEventReport';
+import {
+  isDealSumRelatedField,
+  resolveDealReportSum,
+  computeDealReportSum,
+  buildEventMetricsRow,
+  DEAL_REPORT_SUM_FIELD,
+} from '../functions/eventReportMetrics';
+import { exportScienceProgram } from '../functions/exportScienceProgram';
+import {
+  buildEventChecklistCreatePath,
+  buildEventChecklistDetailsPath,
+  EVENT_CHECKLIST_ENTITY_TYPE_ID,
+} from '../domain/eventChecklist';
+import { loadEventChecklistsMap } from '../functions/loadEventChecklist';
+import {
+  appendDealIdsToEvent,
+  attachCompanySliderCloseTracker,
+  buildCompanyCreatePath,
+  createDealForEventCompany,
+  fetchRecentCompanies,
+  getCurrentBxUser,
+  resolveCreatedCompanyAfterClose,
+} from '../functions/createEventCompanyDeal';
 import summaryTotalIcon from '../assets/summary/total.png';
 import summaryRevenuePlanIcon from '../assets/summary/revenue-plan.png';
 import summaryEventsIcon from '../assets/summary/events.png';
 import summaryDealsIcon from '../assets/summary/deals.png';
+import crmLogo from '../assets/crm-logo.png';
+import AppZoomSlider from '../components/AppZoomSlider.vue';
+import { useAppZoom } from '../composables/useAppZoom';
 
 const { snackbar, snackbarText, snackbarColor, showSnackbar } = useSnackbar();
+const { zoomStyle } = useAppZoom();
 const {
   mountStickyReportTableHeaders,
   refreshStickyReportTableHeaders,
   unmountStickyReportTableHeaders,
 } = useStickyReportTableHeaders();
 
+const DEFAULT_DATE_FILTER_NAME = 'Квартал';
+
+function buildDateFilterShowInput(dateName = DEFAULT_DATE_FILTER_NAME) {
+  return [
+    dateName === 'Последние N дней',
+    dateName === 'Месяц',
+    dateName === 'Квартал',
+    dateName === 'Год',
+    dateName === 'Диапазон',
+    dateName === 'Точная дата',
+    dateName === 'Следующие N дней',
+    dateName === 'Полугодие',
+  ]
+}
+
 const selectedDateIso = ref([null, null]);
-const selectedDateName = ref('Любая дата');
-const dateFilterShowInput = ref([false, false, false, false, false, false, false, false]);
+const selectedDateName = ref(DEFAULT_DATE_FILTER_NAME);
+const dateFilterShowInput = ref(buildDateFilterShowInput(DEFAULT_DATE_FILTER_NAME));
 const dateFilterKey = ref(0);
+const dateFilterRef = ref(null);
 const isInitialLoadDone = ref(false);
+const activeWorkspaceTab = ref('digital-workplace');
+const checklistByEventId = ref({});
+const checklistTypeDialog = ref({
+  open: false,
+  eventId: null,
+});
+const SPONSOR_COMPANY_TYPE_ID = '2'
+const SPONSOR_COMPANY_ASSIGNED_BY_ID = '1614'
+const workspaceTabs = [
+  { id: 'digital-workplace', title: 'Цифровое рабочее место' },
+  { id: 'database-work', title: 'Работа с базой' },
+  { id: 'reports', title: 'Отчеты' },
+  { id: 'disk', title: 'Диск' },
+  { id: 'scientific-program', title: 'Назначение менеджеров' },
+  { id: 'activity-feed', title: 'Лента активности' },
+];
+
+const reportsMenu = [
+  {
+    id: 'employees',
+    title: 'По сотрудникам',
+    icon: 'mdi-account-multiple-outline',
+    url: '/marketplace/app/202/',
+  },
+  {
+    id: 'sponsors',
+    title: 'По спонсорам',
+    icon: 'mdi-handshake-outline',
+    children: [
+      {
+        id: 'total-contribution',
+        title: 'Общий вклад',
+        icon: 'mdi-chart-bar',
+        url: '/marketplace/app/234/',
+      },
+      {
+        id: 'top-sponsors',
+        title: 'Топ спонсоров по ЦА',
+        icon: 'mdi-star-outline',
+        url: '/marketplace/app/246/',
+      },
+    ],
+  },
+
+  {
+    id: 'annual-events',
+    title: 'Ежегодные мероприятия',
+    icon: 'mdi-calendar-month-outline',
+    url: '/marketplace/app/144/',
+  },
+  {
+    id: 'commercial-potential',
+    title: 'Коммерческий потенциал направлений',
+    icon: 'mdi-chart-pie',
+    url: '/marketplace/app/244/',
+  },
+];
+
+const databaseMenuChildren = [
+  {
+    id: 'companies',
+    title: 'Компании',
+    icon: 'mdi-domain',
+    path: '/crm/company/list/',
+  },
+  {
+    id: 'contacts',
+    title: 'Контакты',
+    icon: 'mdi-account',
+    path: '/crm/contact/list/',
+  },
+];
+
+const openReportsGroups = ref([]);
+const isDatabaseMenuOpen = ref(false);
+const isReportsMenuOpen = ref(false);
+
+function toggleDatabaseMenu() {
+  isReportsMenuOpen.value = false
+  isDatabaseMenuOpen.value = !isDatabaseMenuOpen.value
+}
+
+function toggleReportsMenu() {
+  isDatabaseMenuOpen.value = false
+  isReportsMenuOpen.value = !isReportsMenuOpen.value
+  if (!isReportsMenuOpen.value) {
+    openReportsGroups.value = []
+  }
+}
+
+function openDatabasePath(path) {
+  if (!path) return
+  BX24.openPath(path)
+  isDatabaseMenuOpen.value = false
+}
+
+function isReportsGroupOpen(item) {
+  return Boolean(item?.children) && openReportsGroups.value.includes(item.id)
+}
+
+function toggleReportsGroup(itemId) {
+  if (openReportsGroups.value.includes(itemId)) {
+    openReportsGroups.value = openReportsGroups.value.filter((id) => id !== itemId)
+    return
+  }
+  openReportsGroups.value = [...openReportsGroups.value, itemId]
+}
+
+function openReportLink(url) {
+  if (!url) return
+  const fullUrl = url.startsWith('http') ? url : `${getBitrixPortalOrigin()}${url}`
+  window.open(fullUrl, '_blank', 'noopener,noreferrer')
+  isReportsMenuOpen.value = false
+  openReportsGroups.value = []
+}
+
+function onReportsMenuItemClick(item) {
+  if (item?.children?.length) {
+    toggleReportsGroup(item.id)
+    return
+  }
+  openReportLink(item?.url)
+}
+
+function onWorkspaceTabClick(tabId) {
+  if (tabId === 'disk') {
+    const fullUrl = `${getBitrixPortalOrigin()}/docs/path/%D0%9F%D1%80%D0%B8%D0%B2%D0%BB%D0%B5%D1%87%D0%B5%D0%BD%D0%B8%D0%B5%20%D1%81%D0%BF%D0%BE%D0%BD%D1%81%D0%BE%D1%80%D0%BE%D0%B2/`
+    window.open(fullUrl, '_blank', 'noopener,noreferrer')
+    return
+  }
+  if (tabId === 'database-work') {
+    toggleDatabaseMenu()
+    return
+  }
+  if (tabId === 'reports') {
+    toggleReportsMenu()
+    return
+  }
+  isDatabaseMenuOpen.value = false
+  isReportsMenuOpen.value = false
+  openReportsGroups.value = []
+  activeWorkspaceTab.value = tabId
+}
+
+function buildSponsorCompanyListPath() {
+  const params = new URLSearchParams()
+  params.set('apply_filter', 'Y')
+  params.set('COMPANY_TYPE', SPONSOR_COMPANY_TYPE_ID)
+  params.set('COMPANY_TYPE_label', 'Спонсор')
+  params.set('ASSIGNED_BY_ID', SPONSOR_COMPANY_ASSIGNED_BY_ID)
+  params.set('ASSIGNED_BY_ID_label', SPONSOR_COMPANY_ASSIGNED_BY_ID)
+  return `/crm/company/list/?${params.toString()}`
+}
+
+function openSponsorCompaniesList() {
+  const path = buildSponsorCompanyListPath()
+  if ((window as any).BX24?.openPath) {
+    (window as any).BX24.openPath(path)
+    return
+  }
+  openBitrixPath(path)
+}
 
 function onDateFilterChange(value) {
-  selectedDateIso.value = Array.isArray(value) ? [value[0] || null, value[1] || null] : [null, null];
+  selectedDateIso.value = Array.isArray(value)
+    ? [value[0] || null, value[1] || null]
+    : [null, null];
+}
+
+function onDateFilterNameChange(name) {
+  const nextName = name || DEFAULT_DATE_FILTER_NAME;
+  selectedDateName.value = nextName;
+  dateFilterShowInput.value = buildDateFilterShowInput(nextName);
 }
 
 function formatDate(date) {
@@ -566,32 +934,100 @@ function formatCurrency(value) {
   }).format(Number(value) || 0);
 }
 
+function formatOverCurrency(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number) || number === 0) return ''
+  return formatCurrency(number)
+}
+
 function noopAction() {}
 
 const EVENT_ENTITY_TYPE_ID = 1052
 const DEAL_EVENT_FIELD = 'UF_CRM_1742797326'
 const DEAL_CATEGORY_ID = 32
+const EVENT_DIALOG_DEAL_STAGES = [
+  'C32:NEW',
+  'C32:PREPARATION',
+  'C32:UC_GKSSJ3',
+  'C32:UC_HPGIL5',
+  'C32:UC_LXYCFO',
+  'C32:UC_VJZ0FL',
+  'C32:UC_6VDO9F',
+  'C32:UC_5BBXZ5',
+  'C32:UC_R5DX1H',
+  'C32:WON',
+  'C32:LOSE',
+  'C32:APOLOGY',
+  'C32:1',
+  'C32:2',
+  'C32:3',
+  'C32:4',
+  'C32:5',
+  'C32:6',
+  'C32:7',
+  'C32:8',
+  'C32:9',
+]
+const EVENT_DIALOG_DEAL_SELECT = [
+  'ID',
+  'TITLE',
+  'COMMENTS',
+  'UF_CRM_1744096783472',
+  'UF_CRM_1742797326',
+  'STAGE_ID',
+  'ASSIGNED_BY_ID',
+  'UF_CRM_1744890618774',
+  'UF_CRM_1744062581756',
+  'UF_CRM_1745995594',
+  'UF_CRM_1744064620850',
+  'UF_CRM_1744095783871',
+  'UF_CRM_1742906712910',
+  'UF_CRM_1742971372921',
+  'UF_CRM_1745222013992',
+  'UF_CRM_1759821112055',
+  'UF_CRM_1744096312349',
+  'UF_CRM_1755788950300',
+  'UF_CRM_1756807710',
+  'UF_CRM_1754290331',
+  'CONTACT_ID',
+  'COMPANY_ID',
+  'UF_CRM_1742972105926',
+  'UF_CRM_1742972167794',
+  'UF_CRM_1745308616558',
+  'UF_CRM_1769784388444',
+]
 
 function getBitrixPortalOrigin() {
-  const domain = globalThis.BX24?.getAuth?.()?.domain
+  const domain = (window as any).BX24?.getAuth?.()?.domain
   if (domain) return `https://${domain}`
   return window.location.origin
 }
 
-function openBitrixPath(path, { newTab = true } = {}) {
+function openBitrixPath(path, { newTab = true, onClose = null } = {}) {
   const url = path.startsWith('http') ? path : `${getBitrixPortalOrigin()}${path}`
 
-  if (newTab) {
-    window.open(url, '_blank', 'noopener,noreferrer')
+  if ((window as any).BX24?.openPath && typeof onClose === 'function') {
+    (window as any).BX24.openPath(path, onClose)
     return
   }
 
-  if (globalThis.BX24?.openPath) {
-    globalThis.BX24.openPath(path, true)
+  if (newTab) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+    if (typeof onClose === 'function') {
+      window.setTimeout(onClose, 1000)
+    }
+    return
+  }
+
+  if ((window as any).BX24?.openPath) {
+    (window as any).BX24.openPath(path, true)
     return
   }
 
   window.open(url, '_blank', 'noopener,noreferrer')
+  if (typeof onClose === 'function') {
+    window.setTimeout(onClose, 1000)
+  }
 }
 
 function buildDealEventFilterValue(eventId) {
@@ -611,6 +1047,7 @@ function resolveEventTitle(eventId, fallbackTitle = '') {
 function buildDealListEventFilterPath(eventId, eventTitle = '') {
   const params = new URLSearchParams()
   params.set('apply_filter', 'Y')
+  params.set('category_id', '32')
   params.set(DEAL_EVENT_FIELD, buildDealEventFilterValue(eventId))
 
   const title = resolveEventTitle(eventId, eventTitle)
@@ -626,11 +1063,27 @@ function openDealsByEvent(eventId, eventTitle = '') {
 
   const path = buildDealListEventFilterPath(eventId, eventTitle)
 
-  if (globalThis.BX24?.openPath) {
-    globalThis.BX24.openPath(path, true)
+  if ((window as any).BX24?.openPath) {
+    (window as any).BX24.openPath(path, true)
     return
   }
 
+  openBitrixPath(path)
+}
+
+function buildEventDetailsPath(eventId) {
+  return `/crm/type/${EVENT_ENTITY_TYPE_ID}/details/${eventId}/`
+}
+
+function openEventInBitrix(item) {
+  const eventId = item?.UF_CRM_1742797326
+  if (eventId == null || eventId === '') return
+
+  const path = buildEventDetailsPath(eventId)
+  if ((window as any).BX24?.openPath) {
+    (window as any).BX24.openPath(path)
+    return
+  }
   openBitrixPath(path)
 }
 
@@ -646,10 +1099,123 @@ const dealGeneratorDialog = ref({
   event: null,
 })
 
+const welcomeMailingDialog = ref({
+  open: false,
+  event: null,
+})
+
+const eventDealsDialog = ref({
+  open: false,
+  event: null,
+  deals: [],
+  sourceItem: null,
+  refreshing: false,
+  scienceExporting: false,
+})
+
+const eventDealsDialogMetrics = computed(() => {
+  if (!eventDealsDialog.value.open) return null
+
+  const eventId = eventDealsDialog.value.event?.id
+    ?? eventDealsDialog.value.event?.ID
+    ?? eventDealsDialog.value.sourceItem?.UF_CRM_1742797326
+
+  if (eventId == null || eventId === '') return null
+
+  const event = findEventById(eventId)
+  const dialogDeals = (eventDealsDialog.value.deals || []).filter(
+    (deal) => String(deal.UF_CRM_1742797326) === String(eventId),
+  )
+
+  return buildEventMetricsRow(event, dialogDeals, resolveEventPercent)
+})
+
+function getOpenEventDealsDialogId() {
+  if (!eventDealsDialog.value.open) return null
+  return eventDealsDialog.value.event?.id
+    ?? eventDealsDialog.value.event?.ID
+    ?? eventDealsDialog.value.sourceItem?.UF_CRM_1742797326
+    ?? null
+}
+
+function mergeDealForStore(existing, dialogDeal) {
+  const merged = {
+    ...(existing || {}),
+    ...dialogDeal,
+  }
+
+  if (existing) {
+    merged.ASSIGNED_BY_ID = existing.ASSIGNED_BY_ID
+    merged.user = existing.user ?? dialogDeal.user
+  } else {
+    merged.ASSIGNED_BY_ID = dialogDeal.user ?? dialogDeal.ASSIGNED_BY_ID
+    merged.user = dialogDeal.user ?? dialogDeal.ASSIGNED_BY_ID
+  }
+
+  return merged
+}
+
+function getEventDealsActionItem() {
+  if (eventDealsDialog.value.sourceItem) return eventDealsDialog.value.sourceItem
+
+  const event = eventDealsDialog.value.event
+  if (!event) return null
+
+  return {
+    UF_CRM_1742797326: event.id,
+    event: event.title || '',
+    start: event.start || '',
+    city: event.city || '',
+  }
+}
+
+function ensureNestedDialogViewport() {
+  try {
+    const heightCandidates = [window.innerHeight]
+    const widthCandidates = [window.innerWidth]
+    if (window.parent && window.parent !== window) {
+      if (window.parent.innerWidth) widthCandidates.push(window.parent.innerWidth)
+      if (window.parent.innerHeight) heightCandidates.push(window.parent.innerHeight)
+    }
+    if (window.visualViewport?.height) heightCandidates.push(Math.ceil(window.visualViewport.height))
+    if (window.visualViewport?.width) widthCandidates.push(Math.ceil(window.visualViewport.width))
+    const screenHeight = window.screen?.availHeight || window.screen?.height || 1080
+    const screenWidth = window.screen?.availWidth || window.screen?.width || 1920
+    heightCandidates.push(screenHeight)
+    widthCandidates.push(screenWidth)
+
+    const height = Math.max(480, Math.min(...heightCandidates.filter((v) => v > 0)) - 16)
+    const width = Math.max(320, Math.min(...widthCandidates.filter((v) => v > 0)))
+    document.documentElement.style.setProperty('--event-deals-dialog-max-height', `${height}px`)
+    document.documentElement.style.setProperty('--event-deals-dialog-height', `${height}px`)
+    (window as any).BX24?.resizeWindow?.(width, height)
+  } catch (_) {
+    // ignore
+  }
+}
+
+function openWelcomeMailingForEvent(item) {
+  const event = resolveEventForDealGenerator(item)
+  if (!event) {
+    showSnackbar('Не удалось определить мероприятие', 'error')
+    return
+  }
+
+  ensureNestedDialogViewport()
+  welcomeMailingDialog.value = {
+    open: true,
+    event,
+  }
+}
+
 function openDealGeneratorAction(item, mode) {
   const event = resolveEventForDealGenerator(item)
-  if (!event) return
+  if (!event) {
+    showSnackbar('Не удалось определить мероприятие', 'error')
+    return
+  }
 
+  ensureNestedDialogViewport()
   dealGeneratorDialog.value = {
     open: true,
     mode,
@@ -665,12 +1231,333 @@ function openMassGenerationForEvent(item) {
   openDealGeneratorAction(item, 'mass')
 }
 
+async function onDealGeneratorCompleted(result) {
+  const createdIds = Array.isArray(result?.createdDealIds) ? result.createdDealIds : []
+  if (!result?.createdCount || !createdIds.length) return
+
+  const eventId = dealGeneratorDialog.value.event?.id
+    ?? dealGeneratorDialog.value.event?.ID
+    ?? getOpenEventDealsDialogId()
+
+  if (eventId == null || eventId === '') return
+
+  await refreshDealsAfterCreation(createdIds, eventId, { silent: true })
+}
+
+async function openCreateCompanyForEvent(item) {
+  const event = resolveEventForDealGenerator(item)
+  if (!event?.id) {
+    showSnackbar('Не удалось определить мероприятие', 'error')
+    return
+  }
+
+  let beforeCompanies = []
+  let sliderUrl = ''
+  const detachCompanySliderTracker = attachCompanySliderCloseTracker((url) => {
+    sliderUrl = url
+  })
+
+  try {
+    beforeCompanies = await fetchRecentCompanies(100)
+  } catch (error) {
+    detachCompanySliderTracker()
+    console.error(error)
+    showSnackbar('Не удалось подготовить создание компании', 'error')
+    return
+  }
+
+  const maxBeforeId = Math.max(
+    0,
+    ...beforeCompanies.map((company) => Number(company.ID)).filter((id) => Number.isFinite(id)),
+  )
+  const authorPromise = getCurrentBxUser()
+
+  openBitrixPath(buildCompanyCreatePath(), {
+    newTab: false,
+    onClose: async (result) => {
+      detachCompanySliderTracker()
+
+      if (result?.result === 'error') {
+        showSnackbar('Не удалось открыть создание компании', 'error')
+        return
+      }
+
+      try {
+        showSnackbar('Проверяем созданную компанию…', 'info')
+        const company = await resolveCreatedCompanyAfterClose(beforeCompanies, {
+          sliderUrl,
+          maxBeforeId,
+        })
+        if (!company?.ID) {
+          showSnackbar('Компания не создана — сделка не сформирована', 'info')
+          return
+        }
+
+        const author = await authorPromise
+        if (!author?.ID) {
+          showSnackbar('Не удалось определить текущего пользователя', 'error')
+          return
+        }
+
+        const dealId = await createDealForEventCompany(company, event, author)
+        try {
+          await appendDealIdsToEvent(event.id, [dealId])
+        } catch (error) {
+          console.error('Не удалось обновить список сделок мероприятия:', error)
+        }
+
+        showSnackbar(`Создана сделка «${company.TITLE}»`, 'success')
+
+        await refreshDealsAfterCreation([dealId], event.id, { silent: true })
+      } catch (error) {
+        console.error(error)
+        showSnackbar('Не удалось создать сделку по компании', 'error')
+      }
+    },
+  })
+}
+
+function onEventActionMock(item, actionTitle) {
+  const eventTitle = item?.event || `мероприятие #${item?.UF_CRM_1742797326 || ''}`
+  showSnackbar(`«${actionTitle}» — пока мок (${eventTitle})`, 'info')
+}
+
+function patchDealInCollection(collection, dealId, patch) {
+  const id = String(dealId)
+  let changed = false
+  const next = (collection || []).map((deal) => {
+    if (String(deal.ID) !== id) return deal
+    changed = true
+    return { ...deal, ...patch }
+  })
+  return changed ? next : collection
+}
+
+function syncDealPatchEverywhere(dealId, patch) {
+  table1.value = patchDealInCollection(table1.value, dealId, patch)
+  deals.value = patchDealInCollection(deals.value, dealId, patch)
+  eventDealsDialog.value = {
+    ...eventDealsDialog.value,
+    deals: patchDealInCollection(eventDealsDialog.value.deals, dealId, patch),
+  }
+}
+
+function findDealInStores(dealId) {
+  const id = String(dealId)
+  return eventDealsDialog.value.deals.find((deal) => String(deal.ID) === id)
+    || deals.value.find((deal) => String(deal.ID) === id)
+    || table1.value.find((deal) => String(deal.ID) === id)
+    || null
+}
+
+function buildDealPatch(dealId, field, value) {
+  const patch = { [field]: value }
+  if (!isDealSumRelatedField(field) || field === DEAL_REPORT_SUM_FIELD) {
+    return patch
+  }
+
+  const deal = findDealInStores(dealId)
+  if (!deal) return patch
+
+  patch[DEAL_REPORT_SUM_FIELD] = computeDealReportSum({ ...deal, ...patch })
+  return patch
+}
+
+function ensureDealInDeals(dealId) {
+  const id = String(dealId)
+  if (deals.value.some((deal) => String(deal.ID) === id)) return
+
+  const fromDialog = eventDealsDialog.value.deals.find((deal) => String(deal.ID) === id)
+  if (!fromDialog) return
+
+  deals.value = [...deals.value, mergeDealForStore(null, fromDialog)]
+}
+
+function handleEventDealStageUpdated({ dealId, stageId, stageLabel }) {
+  if (!dealId || !stageId) return
+
+  const nextLabel = String(stageLabel || stageMap(stageId) || '')
+  ensureDealInDeals(dealId)
+  syncDealPatchEverywhere(dealId, {
+    STAGE_ID: stageId,
+    stage: nextLabel,
+  })
+
+  showSnackbar('Стадия сделки обновлена', 'success')
+}
+
+function handleEventDealFieldUpdated({ dealId, field, value }) {
+  if (!dealId || !field) return
+
+  ensureDealInDeals(dealId)
+  syncDealPatchEverywhere(dealId, buildDealPatch(dealId, field, value))
+
+  if (field !== 'status') {
+    showSnackbar(
+      isDealSumRelatedField(field) ? 'Сумма обновлена' : 'Значение обновлено',
+      'success',
+    )
+  }
+}
+
+async function exportEventExcel(item) {
+  if (!item?.UF_CRM_1742797326) {
+    showSnackbar('Не удалось определить мероприятие', 'error')
+    return
+  }
+
+  const eventId = item.UF_CRM_1742797326
+
+  try {
+    showSnackbar('Формирование Excel…', 'info')
+
+    // Как в ODK: грузим сделки по стадиям Потенциал / Договоренности / Передано / Отказ
+    let exportDeals = await callApi(
+      'crm.deal.list',
+      {
+        UF_CRM_1742797326: eventId,
+        STAGE_ID: EXPORT_DEAL_STAGE_IDS,
+      },
+      [
+        'ID',
+        'STAGE_ID',
+        'COMMENTS',
+        'UF_CRM_1744890618774',
+        'UF_CRM_1744062581756',
+        'UF_CRM_1745995594',
+        'UF_CRM_1756807710',
+        'UF_CRM_1742797326',
+      ],
+      null,
+      0,
+      0,
+    ) || []
+
+    exportDeals = Array.isArray(exportDeals)
+      ? (exportDeals.length && Array.isArray(exportDeals[0]) ? exportDeals.flat() : exportDeals)
+      : []
+
+    // Статусы участия
+    let statusesById = {}
+    try {
+      const statuses = await callApi('crm.item.list', {}, null, 1080, 0, 0) || []
+      const statusList = Array.isArray(statuses)
+        ? (statuses.length && Array.isArray(statuses[0]) ? statuses.flat() : statuses)
+        : []
+      statusesById = Object.fromEntries(
+        statusList.map((s) => [String(s.id ?? s.ID), s]),
+      )
+    } catch (error) {
+      console.error('Ошибка загрузки статусов для экспорта:', error)
+    }
+
+    // Доверенные лица
+    const trustedIds = [...new Set(
+      exportDeals
+        .map((deal) => (Array.isArray(deal.UF_CRM_1756807710)
+          ? deal.UF_CRM_1756807710[0]
+          : deal.UF_CRM_1756807710))
+        .filter((id) => id != null && id !== ''),
+    )]
+    let contactsById = {}
+    if (trustedIds.length) {
+      const contacts = await callApi(
+        'crm.contact.list',
+        { ID: trustedIds },
+        ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME'],
+      ) || []
+      const contactsList = Array.isArray(contacts)
+        ? (contacts.length && Array.isArray(contacts[0]) ? contacts.flat() : contacts)
+        : []
+      contactsById = Object.fromEntries(
+        contactsList.map((c) => [String(c.ID), c]),
+      )
+    }
+
+    // Подмешиваем уже обогащённые данные из table1 (если есть)
+    const tableById = Object.fromEntries(
+      (table1.value || [])
+        .filter((deal) => String(deal.UF_CRM_1742797326) === String(eventId))
+        .map((deal) => [String(deal.ID), deal]),
+    )
+
+    exportDeals = exportDeals.map((deal) => {
+      const fromTable = tableById[String(deal.ID)] || {}
+      const statusId = Array.isArray(deal.UF_CRM_1745995594)
+        ? deal.UF_CRM_1745995594[0]
+        : deal.UF_CRM_1745995594
+      const statusItem = statusesById[String(statusId)]
+      const trustedId = Array.isArray(deal.UF_CRM_1756807710)
+        ? deal.UF_CRM_1756807710[0]
+        : deal.UF_CRM_1756807710
+      const contact = contactsById[String(trustedId)]
+
+      return {
+        ...deal,
+        UF_CRM_1744062581756: String(deal.UF_CRM_1744062581756 || '')
+          .replace(/\|RUB$/i, ''),
+        status: fromTable.status || statusItem?.title || '',
+        stage: fromTable.stage || stageMap(deal.STAGE_ID),
+        STAGE_ID: deal.STAGE_ID,
+        COMMENTS: deal.COMMENTS ?? fromTable.COMMENTS ?? '',
+        trustedPerson: fromTable.trustedPerson
+          && fromTable.trustedPerson !== 'Не указано'
+          ? fromTable.trustedPerson
+          : (contact
+            ? displayFullName(contact.LAST_NAME, contact.NAME, contact.SECOND_NAME)
+            : 'Не указано'),
+      }
+    })
+
+    const fileName = exportEventReportToExcel(item, exportDeals, formatDate)
+    showSnackbar(`Отчет выгружен: ${fileName}`, 'success')
+  } catch (error) {
+    console.error(error)
+    showSnackbar('Не удалось выгрузить отчет в Excel', 'error')
+  }
+}
+
+async function exportEventScienceProgram(item) {
+  const eventId = item?.UF_CRM_1742797326
+    ?? eventDealsDialog.value.event?.id
+    ?? eventDealsDialog.value.event?.ID
+  if (eventId == null || eventId === '') {
+    showSnackbar('Не удалось определить мероприятие', 'error')
+    return
+  }
+  if (eventDealsDialog.value.scienceExporting) return
+
+  eventDealsDialog.value.scienceExporting = true
+  try {
+    await exportScienceProgram(eventId, {
+      onStatus: (message) => showSnackbar(message, 'info'),
+    })
+    showSnackbar('Научная программа скачана', 'success')
+  } catch (error) {
+    console.error(error)
+    showSnackbar(formatErrorMessage(error, 'Не удалось выгрузить научную программу'), 'error')
+  } finally {
+    eventDealsDialog.value.scienceExporting = false
+  }
+}
+
 
 function formatErrorMessage(error, fallback = 'Произошла ошибка') {
+  if (error instanceof BitrixRateLimitError) return error.message || fallback
   if (error instanceof Error) return error.message || fallback
   if (typeof error === 'string') return error || fallback
   if (error?.message) return String(error.message)
   return fallback
+}
+
+function notifyRateLimit(retryInMs) {
+  const seconds = Math.max(1, Math.ceil(retryInMs / 1000))
+  loadingMessage.value = `Превышен лимит запросов Bitrix24. Повтор через ${seconds} сек…`
+  showSnackbar('Превышен лимит запросов Bitrix24. Запрос будет повторён через минуту.', 'warning')
+}
+
+const rateLimitFetchOptions = {
+  onRateLimit: (retryInMs) => notifyRateLimit(retryInMs),
 }
 
 function showError(error, fallback = 'Произошла ошибка') {
@@ -683,7 +1570,7 @@ const loadingMessage = ref('Инициализация…');
 const deals = ref([]);
 const deals2 = ref([]);
 const events = ref([]);
-const userProfilesById = ref({});
+const cityDirectory = ref([]);
 const failedAvatars = ref(new Set());
 
 const totalRow = ref({
@@ -725,37 +1612,22 @@ async function sendMessage() {
   isLoading.value = true;
   loadingProgress.value = 35;
   loadingMessage.value = 'Загрузка файла на Диск…';
-  let result = '';
-await new Promise((resolve) => {
-  BX24.callMethod(
-    "disk.folder.uploadfile",
-    {
-        id: 1143900,
-        data: {
-            NAME: "report.jpg"
-        },
-        fileContent: document.getElementById('screenshotImg').src.replace('data:image/png;base64,', ''),
-        generateUniqueName: true,
+  let result = await callBxMethod('disk.folder.uploadfile', {
+    id: 1143900,
+    data: {
+      NAME: 'report.jpg',
     },
-    function (res)
-    {
-           result = res.data();
-          resolve();
-    }
-  );
-});
+    fileContent: document.getElementById('screenshotImg').src.replace('data:image/png;base64,', ''),
+    generateUniqueName: true,
+  });
 
   loadingProgress.value = 72;
   loadingMessage.value = 'Отправка файла в чат…';
 
-BX24.callMethod(
-    'im.disk.file.commit',
-    {
-        'CHAT_ID': selectedChatId.value,
-        'UPLOAD_ID': result.ID,
-    },
-    function(res){}
-);
+  await callBxMethod('im.disk.file.commit', {
+    CHAT_ID: selectedChatId.value,
+    UPLOAD_ID: result.ID,
+  });
     showSnackbar('Скриншот отправлен', 'success')
   } catch (error) {
     showError(error, 'Ошибка при отправке скриншота')
@@ -821,6 +1693,8 @@ const SALES_DEPARTMENTS = [
 const EVENT_AUDIENCE_FIELD = 'ufCrm38_1753365559'
 const AUDIENCE_LIST_ID = 216
 const audienceDirectory = ref([])
+const CITY_ENTITY_TYPE_ID = 1094
+const EVENT_CITY_FIELD = 'ufCrm38_1753082280'
 
 const filters = ref({
 
@@ -861,8 +1735,8 @@ function disableFilters(){
     filters.value.selected[Object.keys(filters.value.selected)[i]] = [];
   }
   selectedDateIso.value = [null, null];
-  selectedDateName.value = 'Любая дата';
-  dateFilterShowInput.value = [false, false, false, false, false, false, false, false];
+  selectedDateName.value = DEFAULT_DATE_FILTER_NAME;
+  dateFilterShowInput.value = buildDateFilterShowInput(DEFAULT_DATE_FILTER_NAME);
   dateFilterKey.value += 1;
 }
 
@@ -885,15 +1759,37 @@ const headers2 = ref([
   { title: "Мероприятие", key: "event", align: "start"},
   { title: "Целевая аудитория", key: "audience", align: "start"},
   { title: "Ответственные менеджеры", key: "managers", align: "start"},
-  { title: "Дата", key: "start", align: "center"},
+  {
+    title: "Дата",
+    key: "start",
+    align: "center",
+    sort: (a, b) => {
+      const parseDate = (str) => {
+        if (!str) return 0;
+        const datePart = str.split(' - ')[0];
+        const parts = datePart.split('.');
+        if (parts.length !== 3) return 0;
+        return new Date(parts[2], parts[1] - 1, parts[0]).getTime();
+      };
+      return parseDate(a) - parseDate(b);
+    }
+  },
   { title: "% Выполнения", key: "percent", align: "center"},
   { title: "Собрано", key: "summ", align: "center"},
-  { title: "Собрано сверху", key: "over", align: "center"},
+  {
+    title: "Собрано сверху",
+    key: "over",
+    align: "center",
+    sort: (a, b) => {
+      const numA = parseFloat(a) || 0;
+      const numB = parseFloat(b) || 0;
+      return numA - numB;
+    }
+  },
   { title: "План выручки", key: "planProfit", align: "center"},
   { title: "Потенциал", key: "pot", align: "center"},
   { title: "Договоренности", key: "dog", align: "center"},
   { title: "Сумма П/Д", key: "pd", align: "center"},
-  { title: "Действия", key: "actions", align: "start", sortable: false },
 ]);
 
 
@@ -957,12 +1853,9 @@ function syncAssignedFromSelectedDepartments() {
 }
 
 const filteredAssignedOptions = computed(() => {
-  if (!deals.value.length) return []
-
-  const assignedIds = new Set(deals.value.map((deal) => String(deal.ASSIGNED_BY_ID)))
-
-  let users = (filters.value.value.assigned || []).filter((user) =>
-    assignedIds.has(String(user.ID))
+  const managerIds = collectEventManagerIds(events.value)
+  let users = asArray(filters.value.value.assigned).filter((user) =>
+    managerIds.has(String(user.ID)),
   )
 
   if (filters.value.selected.departments.length > 0) {
@@ -971,91 +1864,121 @@ const filteredAssignedOptions = computed(() => {
     )
   }
 
-  return users
+  return users.sort((a, b) => String(a.FULL_NAME || '').localeCompare(String(b.FULL_NAME || ''), 'ru'))
 })
 
 const filteredDealsForEvents = computed(() => {
   const selectedCategory = new Set(asArray(filters.value.selected.category).map(String))
-  const selectedAssigned = new Set(asArray(filters.value.selected.assigned).map(String))
   const selectedEvents = new Set(asArray(filters.value.selected.events).map(String))
 
-  return deals.value.filter((deal) => {
+  // Фильтр "Ответственный" сюда намеренно не применяется: агрегаты по
+  // мероприятию (% сбора, суммы) должны считаться по всем сделкам мероприятия,
+  // а не только по сделкам выбранного ответственного. Какие мероприятия
+  // показывать при выборе ответственного — решает eventMatchesAssignedFilter.
+  const filtered = deals.value.filter((deal) => {
     if (selectedCategory.size && !selectedCategory.has(String(deal.STAGE_ID))) return false
-    if (selectedAssigned.size && !selectedAssigned.has(String(deal.ASSIGNED_BY_ID))) return false
     if (selectedEvents.size && !selectedEvents.has(String(deal.UF_CRM_1742797326))) return false
     return true
   })
-})
-const groupedEvents = computed(() => {
-  const groups = {};
-  
-  filteredDealsForEvents.value.forEach(deal => {
-    const event = findEventById(deal.UF_CRM_1742797326);
-    if (!eventPassesFilters(event)) return;
-    
-    if (!groups[deal.UF_CRM_1742797326]) {
-      groups[deal.UF_CRM_1742797326] = createEventGroupRow(event, deal);
-    }
-    
-    const summDeal = parseFloat(deal.UF_CRM_1744062581756);
 
-    // Увеличиваем собранную сумму для переданных сделок
-    if(deal.STAGE_ID === "C32:UC_R5DX1H"){
-      groups[deal.UF_CRM_1742797326].summ += summDeal;
-    }
-    
-    // Увеличиваем потенциал для соответствующих стадий
-    if( deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL"){
-      groups[deal.UF_CRM_1742797326].pot += summDeal;
-    }else if( deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
-      groups[deal.UF_CRM_1742797326].dog += summDeal;
-    }
-    
-    // Увеличиваем сумму П/Д для соответствующих стадий
-    if(deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL" || 
-       deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
-      groups[deal.UF_CRM_1742797326].pd += summDeal;
-    }
-    
-    // Увеличиваем over для всех стадий, кроме передано
-    if(deal.STAGE_ID === "C32:UC_LXYCFO" || deal.STAGE_ID === "C32:UC_VJZ0FL" || 
-       deal.STAGE_ID === "C32:UC_5BBXZ5" || deal.STAGE_ID === "C32:UC_6VDO9F"){
-      groups[deal.UF_CRM_1742797326].over += summDeal;
-    }
-  });
+  // eslint-disable-next-line no-console
+  console.log('🔍 [filteredDealsForEvents] computed:', {
+    dealsTotal: deals.value.length,
+    filteredCount: filtered.length,
+    selectedCategorySize: selectedCategory.size,
+    selectedEventsSize: selectedEvents.size,
+    firstDeal: filtered[0] ? {
+      ID: filtered[0].ID,
+      STAGE_ID: filtered[0].STAGE_ID,
+      ASSIGNED_BY_ID: filtered[0].ASSIGNED_BY_ID,
+      UF_CRM_1742797326: filtered[0].UF_CRM_1742797326,
+    } : null,
+  })
+
+  return filtered
+})
+
+const dealsForGroupedEvents = computed(() => {
+  const base = filteredDealsForEvents.value
+  const eventId = getOpenEventDealsDialogId()
+  if (eventId == null || eventId === '') {
+    // eslint-disable-next-line no-console
+    console.log('🔍 [dealsForGroupedEvents] returning base:', base.length)
+    return base
+  }
+
+  const dialogDeals = eventDealsDialog.value.deals || []
+  if (!dialogDeals.length) return base
+
+  const mergedById = new Map()
+
+  base.forEach((deal) => {
+    if (String(deal.UF_CRM_1742797326) !== String(eventId)) return
+    mergedById.set(String(deal.ID), deal)
+  })
+
+  dialogDeals.forEach((dialogDeal) => {
+    const id = String(dialogDeal.ID)
+    mergedById.set(id, mergeDealForStore(mergedById.get(id), dialogDeal))
+  })
+
+  const mergedIds = new Set(mergedById.keys())
+  const rest = base.filter((deal) => {
+    if (String(deal.UF_CRM_1742797326) !== String(eventId)) return true
+    return !mergedIds.has(String(deal.ID))
+  })
+
+  const result = [...rest, ...mergedById.values()]
+  // eslint-disable-next-line no-console
+  console.log('🔍 [dealsForGroupedEvents] with dialog merge:', result.length)
+  return result
+})
+
+const groupedEvents = computed(() => {
+  const dealsByEvent = new Map()
+
+  const dealsFromGrouped = dealsForGroupedEvents.value
+  // eslint-disable-next-line no-console
+  console.log('🔍 [groupedEvents] starts with:', dealsFromGrouped.length, 'deals')
+
+  dealsFromGrouped.forEach((deal) => {
+    const event = findEventById(deal.UF_CRM_1742797326)
+    if (!eventPassesFilters(event)) return
+
+    const eventId = String(deal.UF_CRM_1742797326)
+    if (!dealsByEvent.has(eventId)) dealsByEvent.set(eventId, [])
+    dealsByEvent.get(eventId).push(deal)
+  })
+
+  // eslint-disable-next-line no-console
+  console.log('🔍 [groupedEvents] dealsByEvent after deals:', dealsByEvent.size, 'events')
 
   getFilteredEventIds().forEach((eventId) => {
-    if (groups[eventId]) return
+    const key = String(eventId)
+    if (!dealsByEvent.has(key)) dealsByEvent.set(key, [])
+  })
 
+  // eslint-disable-next-line no-console
+  console.log('🔍 [groupedEvents] dealsByEvent after filtered:', dealsByEvent.size, 'events')
+
+  const result = []
+
+  dealsByEvent.forEach((eventDeals, eventId) => {
     const event = findEventById(eventId)
     if (!event || !eventPassesFilters(event)) return
 
-    groups[eventId] = createEventGroupRow(event)
+    const baseRow = createEventGroupRow(event, eventDeals[0])
+    const metrics = buildEventMetricsRow(event, eventDeals, resolveEventPercent)
+
+    result.push({
+      ...baseRow,
+      ...metrics,
+      event: event?.title || baseRow.event,
+    })
   })
 
-  const result = Object.values(groups).filter((row) => {
-    const event = findEventById(row.UF_CRM_1742797326)
-    return eventPassesFilters(event)
-  })
-
-  // После обработки всех сделок, корректируем значение over для каждого мероприятия
-  for (const innerObj of result) {
-    innerObj.percent = resolveEventPercent(
-      findEventById(innerObj.UF_CRM_1742797326),
-      innerObj.summ,
-      innerObj.planProfit,
-    )
-
-    // РАСЧЕТ СОБРАНО СВЕРХУ: Собранная сумма - План выручки
-    const overValue = parseFloat(innerObj.summ) - parseFloat(innerObj.planProfit);
-    
-    // Проверка значения "over" - показываем только если > 0
-    if (overValue > 0) {
-      innerObj.over = overValue.toFixed(2); // Форматируем до 2 знаков после запятой
-    } else {
-      innerObj.over = ''; // Пустая строка, если <= 0
-    }
-  }
+  // eslint-disable-next-line no-console
+  console.log('🔍 [groupedEvents] final result:', result.length, 'events')
 
   return result.sort((a, b) => {
     const aHasSumm = parseFloat(a.summ) > 0
@@ -1124,13 +2047,9 @@ const totalRow2 = computed(() => {
       row.dog += parseFloat(deal.dog) || 0;
       row.pd += parseFloat(deal.pd) || 0;
       row.planProfit += parseFloat(deal.planProfit) || 0;
-      
-      // Для "Собрано сверху" суммируем только положительные значения
-      const overValue = parseFloat(deal.over) || 0;
-      if (overValue > 0) {
-        row.over += overValue;
-      }
     });
+
+    row.over = row.summ - row.planProfit;
     
     return row;
   }
@@ -1158,7 +2077,7 @@ function resolveUserPhotoUrl(photo) {
   if (rawPhoto.startsWith('//')) return `https:${rawPhoto}`;
 
   const domain =
-    globalThis.BX24?.getAuth?.()?.domain ||
+    (window as any).BX24?.getAuth?.()?.domain ||
     window.location.hostname;
 
   return `https://${domain}${rawPhoto.startsWith('/') ? rawPhoto : `/${rawPhoto}`}`;
@@ -1180,19 +2099,16 @@ function getUserInitials(name) {
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
-function registerUserProfile(user) {
-  if (!user?.ID) return;
-
-  const name = displayFullName(user.LAST_NAME, user.NAME, user.SECOND_NAME);
-  userProfilesById.value[String(user.ID)] = {
-    name,
-    photo: resolveUserPhotoUrl(user.PERSONAL_PHOTO),
-  };
-}
-
 function getUserNameById(userId) {
   if (!userId) return '';
   return userProfilesById.value[String(userId)]?.name || '';
+}
+
+function getUserShortNameById(userId) {
+  if (!userId) return '';
+  const profile = userProfilesById.value[String(userId)];
+  if (!profile) return '';
+  return profile.shortName || profile.name || '';
 }
 
 function getUserPhoto(userId) {
@@ -1208,6 +2124,25 @@ function getEventManagerIds(raw) {
   return ids
     .map((id) => String(id))
     .filter(Boolean);
+}
+
+function collectEventManagerIds(eventItems) {
+  const managerIds = new Set()
+  asArray(eventItems).forEach((event) => {
+    getEventManagerIds(event?.ufCrm38_1753082810).forEach((id) => managerIds.add(id))
+  })
+  return managerIds
+}
+
+function buildAssignedUsersFromEvents(eventItems) {
+  return [...collectEventManagerIds(eventItems)]
+    .map((id) => usersById.value[id])
+    .filter(Boolean)
+    .map((user) => {
+      registerUserProfile(user)
+      return mapUserForAssignedFilter(user)
+    })
+    .sort((a, b) => String(a.FULL_NAME || '').localeCompare(String(b.FULL_NAME || ''), 'ru'))
 }
 
 function asArray(value) {
@@ -1234,9 +2169,14 @@ function getFilteredEventIds() {
 function findEventById(eventId) {
   if (eventId == null || eventId === '') return null
   const id = String(eventId)
-  return events.value.find((item) => String(item.id) === id)
+  const found = events.value.find((item) => String(item.id) === id)
     || asArray(filters.value.value.events).find((item) => String(item.id) === id)
     || null
+  
+  // eslint-disable-next-line no-console
+  if (found) console.log('🔍 [findEventById] found:', id, found.title?.substring(0, 40))
+  
+  return found
 }
 
 function getSelectedDateRange() {
@@ -1312,13 +2252,15 @@ function buildAudienceOptions(eventItems) {
     items.forEach((item) => {
       if (typeof item === 'object' && item != null) {
         const id = String(item.id ?? item.ID ?? item.value ?? item.VALUE ?? item.title ?? item.TITLE ?? '')
-        const title = String(item.title ?? item.TITLE ?? directoryTitleMap.get(id) ?? item.value ?? item.VALUE ?? id)
-        if (id) map.set(id, { id, title })
+        if (!id || !directoryTitleMap.has(id)) return
+        const title = directoryTitleMap.get(id)
+        map.set(id, { id, title })
         return
       }
 
       const value = String(item)
-      if (value) map.set(value, { id: value, title: directoryTitleMap.get(value) || value })
+      if (!value || !directoryTitleMap.has(value)) return
+      map.set(value, { id: value, title: directoryTitleMap.get(value) })
     })
   })
 
@@ -1383,6 +2325,45 @@ function formatEventAudience(event) {
     .join(', ')
 }
 
+function normalizeSmartProcessBindingIds(rawValue, entityTypeId) {
+  return asArray(rawValue)
+    .map((value) => {
+      if (value && typeof value === 'object') {
+        return value.id ?? value.ID ?? value.value ?? value.VALUE
+      }
+      return value
+    })
+    .flatMap((value) => asArray(value))
+    .map((value) => {
+      const normalized = String(value ?? '').trim()
+      const bindingMatch = normalized.match(
+        new RegExp(`^(?:DYNAMIC_|T)?${entityTypeId}[_:](\\d+)$`, 'i'),
+      )
+      return bindingMatch?.[1] || normalized
+    })
+    .filter(Boolean)
+}
+
+function formatEventCity(event) {
+  const cityIds = normalizeSmartProcessBindingIds(
+    event?.[EVENT_CITY_FIELD],
+    CITY_ENTITY_TYPE_ID,
+  )
+  if (!cityIds.length) return ''
+
+  const cityTitles = new Map(
+    asArray(cityDirectory.value).map((city) => [
+      String(city.id ?? city.ID),
+      String(city.title ?? city.TITLE ?? city.id ?? city.ID),
+    ]),
+  )
+
+  return cityIds
+    .map((cityId) => cityTitles.get(String(cityId)) || String(cityId))
+    .filter(Boolean)
+    .join(', ')
+}
+
 function createEventGroupRow(event, deal = null) {
   const planProfit = parseMoneyField(event?.ufCrm38_1745221903440)
 
@@ -1393,12 +2374,13 @@ function createEventGroupRow(event, deal = null) {
     summ: 0,
     pot: 0,
     planProfit,
-    over: '',
+    over: 0,
     dog: 0,
     pd: 0,
     UF_CRM_1744062581756: deal?.UF_CRM_1744062581756,
     STAGE_ID: deal?.STAGE_ID,
     event: event?.title || '',
+    city: formatEventCity(event),
     audience: event ? formatEventAudience(event) : '',
     managers: event ? formatEventManagers(event.ufCrm38_1753082810) : '',
     managerIds: event ? getEventManagerIds(event.ufCrm38_1753082810) : [],
@@ -1423,36 +2405,25 @@ function formatEventManagers(raw) {
   return ids
     .map((id) => {
       const key = String(id)
-      if (userProfilesById.value[key]?.name) return userProfilesById.value[key].name
-      return assigned.find((u) => String(u.ID) === key)?.FULL_NAME || ''
+      const shortName = userProfilesById.value[key]?.shortName
+      if (shortName) return shortName
+      if (userProfilesById.value[key]?.name) {
+        // fallback без отчества, если shortName ещё нет
+        const user = assigned.find((u) => String(u.ID) === key)
+        if (user) return displayNameWithoutPatronymic(user.LAST_NAME, user.NAME)
+        return userProfilesById.value[key].name
+      }
+      const user = assigned.find((u) => String(u.ID) === key)
+      if (user) return displayNameWithoutPatronymic(user.LAST_NAME, user.NAME)
+      return ''
     })
     .filter(Boolean)
     .join(', ')
 }
 
 async function loadEventManagerUsers(eventItems) {
-  const managerIds = new Set()
-  eventItems.forEach((event) => {
-    const raw = event.ufCrm38_1753082810
-    if (raw == null || raw === '') return
-    const ids = Array.isArray(raw) ? raw : [raw]
-    ids.forEach((id) => {
-      if (id != null && id !== '') managerIds.add(String(id))
-    })
-  })
-
-  const missingIds = [...managerIds].filter((id) => !userProfilesById.value[id])
-  if (!missingIds.length) return
-
-  const users = await callApi(
-    'user.get',
-    { ID: missingIds },
-    ['ID', 'NAME', 'SECOND_NAME', 'LAST_NAME', 'PERSONAL_PHOTO'],
-    null,
-    0,
-    0,
-  )
-  ;(Array.isArray(users) ? users : []).forEach(registerUserProfile)
+  const managerIds = collectEventManagerIds(eventItems)
+  await ensureUsersByIds([...managerIds])
 }
 
 function displayFullName(firstName, middleName, lastName) {
@@ -1477,10 +2448,28 @@ function displayFullName(firstName, middleName, lastName) {
     return fullName || 'Имя не указано';
 }
 
+/** Фамилия + имя без отчества */
+function displayNameWithoutPatronymic(lastName, name) {
+  const parts = [lastName, name].map((part) => String(part || '').trim()).filter(Boolean)
+  return parts.join(' ') || 'Имя не указано'
+}
+
 function stageMap(stage){
     let stageName;
 
     switch (stage) {
+        case "C32:NEW":
+            stageName = "База";
+            break;
+        case "C32:PREPARATION":
+            stageName = "Рассылка";
+            break;
+        case "C32:UC_GKSSJ3":
+            stageName = "Обзвон";
+            break;
+        case "C32:UC_HPGIL5":
+            stageName = "Нет ответа";
+            break;
         case "C32:UC_LXYCFO":
             stageName = "Потенциал - холодный";
             break;
@@ -1496,12 +2485,335 @@ function stageMap(stage){
         case "C32:UC_R5DX1H":
             stageName = "Передано";
             break;
+        case "C32:WON":
+            stageName = "Мероприятие завершено";
+            break;
+        case "C32:LOSE":
+            stageName = "Сделка провалена";
+            break;
+        case "C32:APOLOGY":
+            stageName = "Нет денег";
+            break;
+        case "C32:1":
+            stageName = "Не заложили в бюджет";
+            break;
+        case "C32:2":
+            stageName = "Не продвигается препарат в данном направлении";
+            break;
+        case "C32:3":
+            stageName = "Не подались в РЗН";
+            break;
+        case "C32:4":
+            stageName = "Не работаем с клиентом";
+            break;
+        case "C32:5":
+            stageName = "Урезали бюджет";
+            break;
+        case "C32:7":
+            stageName = "Не успели согласовать документы";
+            break;
+        case "C32:8":
+            stageName = "Не проходит площадка проведения";
+            break;
+        case "C32:9":
+            stageName = "Плохой опыт участия в данном проекте (явка)";
+            break;
+        case "C32:6":
+            stageName = "Другое";
+            break;
         default:
             stageName = "";
             break;
     }
 
     return stageName;
+}
+
+function flattenCallApiDeals(rawDeals) {
+  if (!Array.isArray(rawDeals)) return []
+  return rawDeals.length && Array.isArray(rawDeals[0]) ? rawDeals.flat() : rawDeals
+}
+
+function waitMs(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
+async function enrichEventDialogDeals(dealsList) {
+  const userIds = [...new Set(
+    dealsList
+      .map((deal) => deal.ASSIGNED_BY_ID)
+      .filter((id) => id != null && id !== ''),
+  )]
+
+  if (userIds.length) {
+    await ensureUsersByIds(userIds)
+  }
+
+  const usersByIdMap = Object.fromEntries(
+    userIds.map((id) => [String(id), usersById.value[String(id)]]).filter(([, user]) => user),
+  )
+
+  let statusesById = {}
+  try {
+    const statuses = await callApi('crm.item.list', {}, null, 1080, 0, 0) || []
+    const statusList = flattenCallApiDeals(statuses)
+    statusesById = Object.fromEntries(
+      statusList.map((item) => [String(item.id ?? item.ID), item]),
+    )
+  } catch (error) {
+    console.error('Ошибка загрузки статусов для диалога сделок:', error)
+  }
+
+  return dealsList.map((deal) => normalizeEventDialogDeal(deal, usersByIdMap, statusesById))
+}
+
+async function fetchEventDialogDealsByIds(dealIds) {
+  const ids = [...new Set(
+    (dealIds || [])
+      .map((id) => String(id).trim())
+      .filter(Boolean),
+  )]
+  if (!ids.length) return []
+
+  const rawDeals = await callApi(
+    'crm.deal.list',
+    { ID: ids },
+    EVENT_DIALOG_DEAL_SELECT,
+    null,
+    0,
+    0,
+  ) || []
+
+  return enrichEventDialogDeals(flattenCallApiDeals(rawDeals))
+}
+
+function mergeGeneratedDealsIntoStores(normalizedDeals, eventId) {
+  if (!normalizedDeals.length) return
+
+  const eventKey = String(eventId)
+  const dialogOpenForEvent = eventDealsDialog.value.open
+    && String(getOpenEventDealsDialogId()) === eventKey
+
+  if (dialogOpenForEvent) {
+    eventDealsDialog.value.deals = mergeEventDialogDealsById(
+      eventDealsDialog.value.deals,
+      normalizedDeals,
+    )
+  }
+
+  normalizedDeals.forEach((dialogDeal) => {
+    const dealId = String(dialogDeal.ID)
+    const existingTable = table1.value.find((deal) => String(deal.ID) === dealId)
+    const mergedForTable = mergeDealForStore(existingTable, dialogDeal)
+
+    if (existingTable) {
+      table1.value = patchDealInCollection(table1.value, dealId, mergedForTable)
+    } else {
+      table1.value = [...table1.value, mergedForTable]
+    }
+
+    const existingDeal = deals.value.find((deal) => String(deal.ID) === dealId)
+    if (existingDeal) {
+      deals.value = patchDealInCollection(
+        deals.value,
+        dealId,
+        mergeDealForStore(existingDeal, dialogDeal),
+      )
+    } else {
+      deals.value = [...deals.value, mergeDealForStore(null, dialogDeal)]
+    }
+  })
+}
+
+async function refreshDealsAfterCreation(createdDealIds, eventId, { silent = true } = {}) {
+  const ids = [...new Set(
+    (createdDealIds || [])
+      .map((id) => String(id).trim())
+      .filter(Boolean),
+  )]
+  if (!ids.length || eventId == null || eventId === '') return
+
+  let fetchedDeals = await fetchEventDialogDealsByIds(ids)
+  if (fetchedDeals.length) {
+    mergeGeneratedDealsIntoStores(fetchedDeals, eventId)
+  }
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const missingIds = ids.filter((id) => !findDealInStores(id))
+    if (!missingIds.length) break
+
+    if (attempt > 0) {
+      await waitMs(350 * attempt)
+    }
+
+    fetchedDeals = await fetchEventDialogDealsByIds(missingIds)
+    if (fetchedDeals.length) {
+      mergeGeneratedDealsIntoStores(fetchedDeals, eventId)
+    }
+  }
+
+  const dialogOpenForEvent = eventDealsDialog.value.open
+    && String(getOpenEventDealsDialogId()) === String(eventId)
+
+  if (dialogOpenForEvent && !eventDealsDialog.value.refreshing) {
+    await refreshEventDealsDialog({ silent })
+  }
+}
+
+function normalizeMoneyField(value) {
+  if (value == null || value === '') return 0
+  return String(value).replace(/\|RUB$/i, '')
+}
+
+function normalizeEventDialogDeal(deal, usersById = {}, statusesById = {}) {
+  const assignedId = deal.ASSIGNED_BY_ID
+  const user = usersById[String(assignedId)] || null
+  const statusId = Array.isArray(deal.UF_CRM_1745995594)
+    ? deal.UF_CRM_1745995594[0]
+    : deal.UF_CRM_1745995594
+  const status = statusesById[String(statusId)] || null
+
+  return {
+    ...deal,
+    UF_CRM_1745995594: statusId,
+    UF_CRM_1742971372921: normalizeMoneyField(deal.UF_CRM_1742971372921),
+    UF_CRM_1745222013992: normalizeMoneyField(deal.UF_CRM_1745222013992),
+    UF_CRM_1759821112055: normalizeMoneyField(deal.UF_CRM_1759821112055),
+    UF_CRM_1742972105926: normalizeMoneyField(deal.UF_CRM_1742972105926),
+    UF_CRM_1742972167794: normalizeMoneyField(deal.UF_CRM_1742972167794),
+    UF_CRM_1744062581756: normalizeMoneyField(deal.UF_CRM_1744062581756),
+    ASSIGNED_BY_ID: displayFullName(user?.LAST_NAME, user?.NAME, user?.SECOND_NAME),
+    status: status?.title || '',
+    stage: stageMap(deal.STAGE_ID),
+    user: user?.ID || assignedId,
+  }
+}
+
+async function loadDealsForEventDialog(eventId) {
+  const rawDeals = await callApi(
+    'crm.deal.list',
+    {
+      [DEAL_EVENT_FIELD]: eventId,
+      STAGE_ID: EVENT_DIALOG_DEAL_STAGES,
+    },
+    EVENT_DIALOG_DEAL_SELECT,
+    null,
+    0,
+    0,
+  ) || []
+
+  return enrichEventDialogDeals(flattenCallApiDeals(rawDeals))
+}
+
+async function loadEventItemForDialog(eventId) {
+  if (eventId == null || eventId === '') return null
+  try {
+    const result = await callApi('crm.item.list', { id: eventId }, null, EVENT_ENTITY_TYPE_ID, 0, 0)
+    const items = Array.isArray(result) ? result : []
+    return items[0] || null
+  } catch (error) {
+    console.error('Ошибка загрузки мероприятия для диалога сделок:', error)
+    return null
+  }
+}
+
+async function openEventDealsDialog(item) {
+  const event = resolveEventForDealGenerator(item)
+  if (!event) {
+    showSnackbar('Не удалось определить мероприятие', 'error')
+    return
+  }
+
+  const eventId = event.id ?? item?.UF_CRM_1742797326
+  eventDealsDialog.value = {
+    open: true,
+    event: {
+      ...event,
+      title: event.title || item?.event || '',
+      start: item?.start || event.start,
+      city: formatEventCity(event) || item?.city || '',
+    },
+    deals: [],
+    sourceItem: item,
+    refreshing: true,
+    scienceExporting: false,
+  }
+
+  try {
+    const [deals, freshEvent] = await Promise.all([
+      loadDealsForEventDialog(eventId),
+      loadEventItemForDialog(eventId),
+    ])
+    eventDealsDialog.value.deals = deals
+    if (freshEvent) {
+      eventDealsDialog.value.event = {
+        ...eventDealsDialog.value.event,
+        ...freshEvent,
+        title: freshEvent.title || eventDealsDialog.value.event.title,
+        city: formatEventCity(freshEvent) || eventDealsDialog.value.event.city,
+      }
+    }
+  } catch (error) {
+    console.error(error)
+    showSnackbar('Не удалось загрузить сделки мероприятия', 'error')
+    eventDealsDialog.value.deals = table1.value.filter(
+      (deal) => String(deal.UF_CRM_1742797326) === String(eventId),
+    )
+  } finally {
+    eventDealsDialog.value.refreshing = false
+  }
+}
+
+function mergeEventDialogDealsById(existingDeals, incomingDeals) {
+  const byId = new Map(
+    (existingDeals || []).map((deal) => [String(deal.ID), deal]),
+  )
+  ;(incomingDeals || []).forEach((deal) => {
+    byId.set(String(deal.ID), deal)
+  })
+  return Array.from(byId.values())
+}
+
+async function refreshEventDealsDialog({ silent = false } = {}) {
+  if (!eventDealsDialog.value.open || eventDealsDialog.value.refreshing) return
+
+  const item = getEventDealsActionItem()
+  const eventId = item?.UF_CRM_1742797326 || eventDealsDialog.value.event?.id
+  if (eventId == null || eventId === '') {
+    if (!silent) {
+      showSnackbar('Не удалось определить мероприятие', 'error')
+    }
+    return
+  }
+
+  eventDealsDialog.value.refreshing = true
+  try {
+    const [deals, freshEvent] = await Promise.all([
+      loadDealsForEventDialog(eventId),
+      loadEventItemForDialog(eventId),
+    ])
+    eventDealsDialog.value.deals = mergeEventDialogDealsById(eventDealsDialog.value.deals, deals)
+    if (freshEvent) {
+      eventDealsDialog.value.event = {
+        ...eventDealsDialog.value.event,
+        ...freshEvent,
+        title: freshEvent.title || eventDealsDialog.value.event?.title,
+        city: formatEventCity(freshEvent) || eventDealsDialog.value.event?.city,
+      }
+    }
+    if (!silent) {
+      showSnackbar('Данные обновлены', 'success')
+    }
+  } catch (error) {
+    console.error(error)
+    if (!silent) {
+      showSnackbar('Не удалось обновить данные', 'error')
+    }
+  } finally {
+    eventDealsDialog.value.refreshing = false
+  }
 }
 
 function parsePercent(percent) {
@@ -1525,7 +2837,72 @@ function getPercentBarClass(percent) {
   return 'percent-cell__fill--green';
 }
 
+function getChecklistBarClass(percent) {
+  const value = Number(percent) || 0
+  if (value <= 40) return 'event-checklist-inline__fill--red'
+  if (value <= 74) return 'event-checklist-inline__fill--orange'
+  return 'event-checklist-inline__fill--green'
+}
+
+function getEventChecklist(item) {
+  const eventId = item?.UF_CRM_1742797326
+  if (eventId == null || eventId === '') return null
+  return checklistByEventId.value[String(eventId)] || null
+}
+
+async function loadEventChecklists(eventItems = events.value) {
+
+  const eventIds = [...new Set(
+    (eventItems || [])
+      .map((event) => event?.id ?? event?.ID)
+      .filter((id) => id != null && id !== ''),
+  )]
+
+  if (!eventIds.length) {
+    checklistByEventId.value = {}
+    return
+  }
+
+  try {
+    checklistByEventId.value = await loadEventChecklistsMap(eventIds)
+  } catch (error) {
+    console.error('Ошибка загрузки чек-листов мероприятий:', error)
+    checklistByEventId.value = {}
+  }
+}
+
+function openEventChecklistFromTable(item) {
+  const checklist = getEventChecklist(item)
+  if (!checklist?.itemId) return
+  openBitrixPath(
+    buildEventChecklistDetailsPath(
+      checklist.itemId,
+      checklist.entityTypeId || EVENT_CHECKLIST_ENTITY_TYPE_ID,
+    ),
+    {
+      newTab: false,
+      onClose: () => loadEventChecklists(),
+    },
+  )
+}
+
+function createEventChecklistFromTable(item) {
+  const eventId = item?.UF_CRM_1742797326
+  if (eventId == null || eventId === '') return
+  checklistTypeDialog.value = { open: true, eventId }
+}
+
+function createEventChecklistOfType(entityTypeId) {
+  const eventId = checklistTypeDialog.value.eventId
+  if (eventId == null || eventId === '') return
+  openBitrixPath(buildEventChecklistCreatePath(eventId, entityTypeId), {
+    newTab: false,
+    onClose: () => loadEventChecklists(),
+  })
+}
+
 onMounted(async () => {
+  setBitrixRateLimitNotifier((retryInMs) => notifyRateLimit(retryInMs));
   mountStickyReportTableHeaders();
 
   try {
@@ -1537,30 +2914,10 @@ onMounted(async () => {
       1052, 0, 0
     );
     
-    loadingMessage.value = 'Загрузка пользователей…';
-    loadingProgress.value = 22;
-    const assigned = await callApi("user.get", {}, ["NAME", "SECOND_NAME", "LAST_NAME", "ID", "UF_DEPARTMENT", "PERSONAL_PHOTO"], null, 0, 0);
-
-    filters.value.value.assigned = assigned.map((user) => {
-      const parts = []
-      if (user.NAME) parts.push(user.NAME)
-      if (user.SECOND_NAME) parts.push(user.SECOND_NAME)
-      if (user.LAST_NAME) parts.push(user.LAST_NAME)
-
-      const mapped = {
-        ...user,
-        FULL_NAME: parts.join(' '),
-        departmentIds: Array.isArray(user.UF_DEPARTMENT)
-          ? user.UF_DEPARTMENT.map((id) => String(id))
-          : (user.UF_DEPARTMENT ? [String(user.UF_DEPARTMENT)] : []),
-      }
-      registerUserProfile(mapped)
-      return mapped
-    })
-    
     loadingMessage.value = 'Загрузка отчёта по сделкам…';
     loadingProgress.value = 28;
     await getData();
+
     isInitialLoadDone.value = true;
     refreshStickyReportTableHeaders();
   } catch (error) {
@@ -1571,6 +2928,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  setBitrixRateLimitNotifier(null);
+  cancelFilterAutoRefresh();
   unmountStickyReportTableHeaders();
 });
 
@@ -1600,14 +2959,6 @@ watch(
   () => {
     if (filters.value.selected.departments.length > 0) {
       syncAssignedFromSelectedDepartments()
-      return
-    }
-
-    if (deals.value.length > 0) {
-      const assignedIds = new Set(deals.value.map((deal) => String(deal.ASSIGNED_BY_ID)))
-      filters.value.selected.assigned = filters.value.selected.assigned.filter((userId) =>
-        assignedIds.has(String(userId))
-      )
     }
   },
   { deep: true }
@@ -1621,12 +2972,81 @@ watch(
   { deep: true }
 )
 
+/** Пауза после последнего изменения фильтра, чтобы дождаться конца ввода */
+const FILTER_AUTO_REFRESH_DELAY_MS = 800;
+let filterAutoRefreshTimer = null;
+let appliedFilterSignature = '';
+
+function buildFilterSignature() {
+  const ids = (value) => asArray(value).map(String).sort();
+
+  return JSON.stringify({
+    departments: ids(filters.value.selected.departments),
+    category: ids(filters.value.selected.category),
+    dateName: selectedDateName.value,
+    dateFrom: selectedDateIso.value?.[0] || null,
+    dateTo: selectedDateIso.value?.[1] || null,
+  });
+}
+
+function cancelFilterAutoRefresh() {
+  if (filterAutoRefreshTimer == null) return;
+  window.clearTimeout(filterAutoRefreshTimer);
+  filterAutoRefreshTimer = null;
+}
+
+function scheduleFilterAutoRefresh() {
+  if (!isInitialLoadDone.value) return;
+  if (buildFilterSignature() === appliedFilterSignature) return;
+
+  cancelFilterAutoRefresh();
+  filterAutoRefreshTimer = window.setTimeout(() => {
+    filterAutoRefreshTimer = null;
+
+    // Данные ещё грузятся — пробуем позже, чтобы не слать параллельные запросы
+    if (isLoading.value) {
+      scheduleFilterAutoRefresh();
+      return;
+    }
+
+    if (buildFilterSignature() === appliedFilterSignature) return;
+    void getData();
+  }, FILTER_AUTO_REFRESH_DELAY_MS);
+}
+
+// Все данные загружаются один раз при старте (onMounted → getData).
+// Фильтры применяются на клиенте через computed (table1Filtered / filteredDealsForEvents),
+// поэтому повторная загрузка с сервера при смене фильтров не нужна.
+
+function resolveReportEventIds(eventItems, dateFrom, dateTo, selectedEventIds = []) {
+  const selected = asArray(selectedEventIds).map(String).filter(Boolean)
+  const selectedSet = selected.length ? new Set(selected) : null
+
+  return asArray(eventItems)
+    .filter((event) => {
+      const id = String(event?.id ?? event?.ID ?? '')
+      if (!id) return false
+      if (selectedSet && !selectedSet.has(id)) return false
+      return isEventWithinDateRange(event?.ufCrm38_1745307580193, dateFrom, dateTo)
+    })
+    .map((event) => event.id ?? event.ID)
+}
+
 const getData = async () => {
+  cancelFilterAutoRefresh();
   isLoading.value = true;
   loadingProgress.value = 0;
   loadingMessage.value = 'Подготовка фильтров и запроса…';
 
   try {
+  // Синхронизируем дату из DateFilter перед запросом
+  if (dateFilterRef.value && typeof dateFilterRef.value.flush === 'function') {
+    const flushed = dateFilterRef.value.flush()
+    if (Array.isArray(flushed)) {
+      selectedDateIso.value = [flushed[0] || null, flushed[1] || null]
+    }
+  }
+
   loadingProgress.value = Math.max(loadingProgress.value, 8);
   loadingMessage.value = 'Подготовка фильтров и запроса…';
 
@@ -1639,164 +3059,97 @@ const getData = async () => {
     UF_CRM_1744062581756: 0,
   };
 
-  // Подготовка фильтров
-  const filterAssigned = filters.value.selected.assigned.length === 0 
-    ? filters.value.value.assigned.map(item => item.ID) 
-    : filters.value.selected.assigned;
-  
-  const filterCategory = filters.value.selected.category.length === 0 
-    ? filters.value.value.category.map(item => item.id) 
-    : filters.value.selected.category;
-  
-  const filterEvents = asArray(filters.value.selected.events).length === 0 
-    ? asArray(filters.value.value.events).map(item => item.id) 
-    : asArray(filters.value.selected.events);
+  loadingProgress.value = Math.max(loadingProgress.value, 18)
+  loadingMessage.value = 'Загрузка мероприятий…'
 
-  const [dateFrom, dateTo] = formatDateFilterRange(selectedDateIso.value);
+  events.value = await callApi('crm.item.list', {}, null, 1052, 0, 0) || []
+  filters.value.value.events = asArray(events.value)
+    .filter((item) => {
+      const value = item?.ufCrm38_1751875905992
+      return value != null && value !== ''
+    })
+    .map((item) => ({
+      id: item.id ?? item.ID,
+      title: item.title ?? item.TITLE ?? '',
+    }))
+    .filter((item) => item.id != null && item.id !== '')
+  cityDirectory.value = await callApi(
+    'crm.item.list',
+    {},
+    ['id', 'title'],
+    CITY_ENTITY_TYPE_ID,
+    0,
+    0,
+  ) || []
+  audienceDirectory.value = await getListElements(AUDIENCE_LIST_ID, {}, ['ID', 'NAME']) || []
+  await loadEventManagerUsers(events.value)
+  filters.value.value.assigned = buildAssignedUsersFromEvents(events.value)
+  const allowedAssignedIds = new Set(filters.value.value.assigned.map((user) => String(user.ID)))
+  filters.value.selected.assigned = asArray(filters.value.selected.assigned)
+    .filter((userId) => allowedAssignedIds.has(String(userId)))
+  await loadEventChecklists(events.value)
+  filters.value.value.audience = buildAudienceOptions(events.value)
 
-  const dealFiltersForCompanies = {
-    ...buildCompanyTableDateFilter(selectedDateIso.value),
-    "STAGE_ID": filterCategory,
-    "ASSIGNED_BY_ID": filterAssigned,
-    "UF_CRM_1742797326": filterEvents,
-  };
+  // Загружаем сразу ВСЕ сделки по всем мероприятиям и стадиям.
+  // Все фильтры (дата, категория, ответственный, мероприятия, ЦА) применяются на клиенте
+  // через filteredDealsForEvents / table1Filtered — без повторных запросов на сервер.
+  // Используем DYNAMIC_1052 вместо UF_CRM_1742797326 для handler.
+  const eventIdsForFilter = asArray(filters.value.value.events).map((item) => String(item.id))
+
+  const eventFilter = buildEventDealFilter(eventIdsForFilter)
 
   const dealFiltersForEvents = {
-    "STAGE_ID": filterCategory,
-    "ASSIGNED_BY_ID": filterAssigned,
-    "UF_CRM_1742797326": filterEvents,
-  };
+    ...eventFilter,
+  }
 
   loadingProgress.value = Math.max(loadingProgress.value, 38);
-  loadingMessage.value = 'Загрузка сделок для сводной таблицы…';
+  loadingMessage.value = 'Загрузка сделок…';
 
-  // Получаем сделки для второй таблицы (сгруппированные по мероприятиям)
+  // Один запрос вместо двух: сводная и детальная таблицы отличаются только
+  // фильтром даты передачи — его применяем на клиенте (isDealWithinDateRange).
   let dealsLocal2 = [];
-  let start = 0;
-  const batchSize = 50;
-  let hasMore = true;
-
-  while (hasMore) {
-    try {
-      const response = await fetch("https://b24market.webtm.ru/test/handler.php", {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          "method": "crm.deal.list",
-          "filters": dealFiltersForEvents,
-          "select": [
-            "UF_CRM_1744096783472", 
-            'UF_CRM_1742797326',
-            "STAGE_ID", 
-            "ASSIGNED_BY_ID", 
-            'UF_CRM_1744890618774', 
-            'UF_CRM_1744062581756', 
-            'UF_CRM_1745995594', 
-            'UF_CRM_1744064620850', 
-            'UF_CRM_1744095783871', 
-            'UF_CRM_1742906712910', 
-            "UF_CRM_1745222013992", 
-            "UF_CRM_1759821112055", 
-            "UF_CRM_1742972105926", 
-            "UF_CRM_1742972167794", 
-            "UF_CRM_1745308616558"
-          ],
-          "start": start,
-          "limit": batchSize
-        })
-      });
-
-          const data = (await response.json()).data;
-
-          if (data.total >= start) {
-            dealsLocal2 = dealsLocal2.concat(data.data);
-            start += batchSize;
-            if (data.total <= start) {
-              hasMore = false;
-            }
-          } else {
-            hasMore = false;
-          }
-        } catch (error) {
-          console.error('Ошибка при получении сделок:', error);
-          showError(error, 'Ошибка при загрузке сделок для сводной таблицы');
-          hasMore = false;
-        }
+  let dealsLocal = [];
+  try {
+    if (!eventIdsForFilter.length) {
+      dealsLocal2 = []
+      dealsLocal = []
+    } else {
+      dealsLocal2 = await fetchDealsFromHandler(
+        dealFiltersForEvents,
+        DEAL_SELECT_FIELDS_WITH_COMMENTS,
+        rateLimitFetchOptions,
+      );
+      // Дата сделки фильтруется на клиенте (table1Filtered), поэтому грузим всё сразу.
+      dealsLocal = dealsLocal2
+    }
+  } catch (error) {
+    console.error('Ошибка при получении сделок:', error);
+    showError(error, 'Ошибка при загрузке сделок');
   }
 
   loadingProgress.value = Math.max(loadingProgress.value, 56);
-  loadingMessage.value = 'Загрузка детальных сделок…';
-
-  // Получаем сделки для первой таблицы (детальная информация)
-  let dealsLocal = [];
-  start = 0;
-  hasMore = true;
-
-  while (hasMore) {
-    try {
-      const response = await fetch("https://b24market.webtm.ru/test/handler.php", {
-        method: "POST",
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          "method": "crm.deal.list",
-          "filters": dealFiltersForCompanies,
-          "select": [
-            "UF_CRM_1744096783472", 
-            'UF_CRM_1742797326',
-            "STAGE_ID", 
-            "ASSIGNED_BY_ID", 
-            'UF_CRM_1744890618774', 
-            'UF_CRM_1744062581756', 
-            'UF_CRM_1745995594', 
-            'UF_CRM_1744064620850', 
-            'UF_CRM_1744095783871', 
-            'UF_CRM_1742906712910', 
-            "UF_CRM_1745222013992", 
-            "UF_CRM_1759821112055", 
-            "UF_CRM_1742972105926", 
-            "UF_CRM_1742972167794", 
-            "UF_CRM_1745308616558"
-          ],
-          "start": start,
-          "limit": batchSize
-        })
-      });
-
-          const data = (await response.json()).data;
-
-          if (data.total >= start) {
-            dealsLocal = dealsLocal.concat(data.data);
-            start += batchSize;
-            if (data.total <= start) {
-              hasMore = false;
-            }
-          } else {
-            hasMore = false;
-          }
-        } catch (error) {
-          console.error('Ошибка при получении сделок:', error);
-          showError(error, 'Ошибка при загрузке детальных сделок');
-          hasMore = false;
-        }
-  }
-
-  loadingProgress.value = Math.max(loadingProgress.value, 72);
-  loadingMessage.value = 'Загрузка мероприятий и статусов CRM…';
-
-  // Получаем дополнительные данные (мероприятия, статусы, пользователи)
-  const date = moment();
-  const isoDate = date.toISOString();
-  
-  events.value = await callApi('crm.item.list', {}, null, 1052, 0, 0) || []
-  audienceDirectory.value = await getListElements(AUDIENCE_LIST_ID, {}, ['ID', 'NAME']) || []
-  await loadEventManagerUsers(events.value)
-  filters.value.value.audience = buildAudienceOptions(events.value)
 
   loadingProgress.value = Math.max(loadingProgress.value, 82);
+
+  // eslint-disable-next-line no-console
+  console.log('🔍 [getData] Deals loaded:', {
+    dealsLocalCount: dealsLocal.length,
+    dealsLocal2Count: dealsLocal2.length,
+    firstDealsLocalDeal: dealsLocal[0] ? {
+      ID: dealsLocal[0].ID,
+      TITLE: dealsLocal[0].TITLE,
+      UF_CRM_1742797326: dealsLocal[0].UF_CRM_1742797326,
+      STAGE_ID: dealsLocal[0].STAGE_ID,
+      UF_CRM_1744062581756: dealsLocal[0].UF_CRM_1744062581756,
+    } : null,
+    firstDealsLocal2Deal: dealsLocal2[0] ? {
+      ID: dealsLocal2[0].ID,
+      TITLE: dealsLocal2[0].TITLE,
+      UF_CRM_1742797326: dealsLocal2[0].UF_CRM_1742797326,
+      STAGE_ID: dealsLocal2[0].STAGE_ID,
+      UF_CRM_1744062581756: dealsLocal2[0].UF_CRM_1744062581756,
+    } : null,
+  })
 
   const statuses = await callApi('crm.item.list', {}, null, 1080, 0, 0) || []
 
@@ -1804,13 +3157,41 @@ const getData = async () => {
   loadingMessage.value = 'Загрузка данных ответственных…';
 
   const usersFind = Array.from(new Set(dealsLocal.map(deal => deal.ASSIGNED_BY_ID)));
-  const users = await callApi("user.get", { "ID": usersFind }, ["ID", "NAME", "SECOND_NAME", "LAST_NAME", "PERSONAL_PHOTO"]);
-  ;(Array.isArray(users) ? users : []).forEach(registerUserProfile);
+  await ensureUsersByIds(usersFind, USER_SELECT_FIELDS);
+  const users = usersFind.map((id) => usersById.value[String(id)]).filter(Boolean);
 
   loadingProgress.value = Math.max(loadingProgress.value, 94);
   loadingMessage.value = 'Обработка таблицы и расчёт итогов…';
 
-  // Обработка данных для первой таблицы
+  // Загружаем контакты через CONTACT_ID из сделок (через batch handler)
+  const contactIds = Array.from(new Set(
+    dealsLocal
+      .map((deal) => {
+        // Сначала пробуем CONTACT_ID
+        if (deal.CONTACT_ID) {
+          const value = deal.CONTACT_ID
+          if (Array.isArray(value)) return value[0]
+          return value
+        }
+        // Fallback на UF_CRM_1756807710 (доверенные лица)
+        const value = deal.UF_CRM_1756807710
+        if (Array.isArray(value)) return value[0]
+        return value
+      })
+      .filter((id) => id != null && id !== ''),
+  ))
+  let contacts = []
+  if (contactIds.length) {
+    contacts = await callApi(
+      'crm.contact.list',
+      { ID: contactIds },
+      ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME'],
+    ) || []
+  }
+  const contactsList = Array.isArray(contacts)
+    ? (contacts.length && Array.isArray(contacts[0]) ? contacts.flat() : contacts)
+    : []
+
   dealsLocal.forEach(obj => {
     const event = events.value.find(e => e.id == obj.UF_CRM_1742797326);
     const user = users.find(e => e.ID == obj.ASSIGNED_BY_ID);
@@ -1828,9 +3209,51 @@ const getData = async () => {
     obj.status = status && status.title ? status.title : "";
     obj.stage = stageMap(obj.STAGE_ID);
     obj.user = user?.ID;
+
+    // Приоритет: CONTACT_ID из сделки, fallback на UF_CRM_1756807710
+    let contactId = obj.CONTACT_ID
+    if (contactId) {
+      contactId = Array.isArray(contactId) ? contactId[0] : contactId
+    } else {
+      const ufValue = obj.UF_CRM_1756807710
+      contactId = Array.isArray(ufValue) ? ufValue[0] : ufValue
+    }
+    const contact = contactsList.find((con) => String(con.ID) === String(contactId))
+    obj.trustedPerson = contact
+      ? displayFullName(contact.LAST_NAME, contact.NAME, contact.SECOND_NAME)
+      : 'Не указано'
   });
 
-  // Расчет итоговых сумм для первой таблицы
+  // Обработка dealsLocal2 (сделки для сводной таблицы) — аналогично dealsLocal
+  dealsLocal2.forEach(obj => {
+    obj.UF_CRM_1745995594 = obj.UF_CRM_1745995594?.[0];
+    // Парсим все числовые поля — убираем |RUB и конвертируем в число
+    const parseMoney = (val) => {
+      if (val == null || val === '') return 0
+      const cleaned = String(val).replace('|RUB', '').replace(/\s/g, '').replace(',', '.')
+      const parsed = parseFloat(cleaned)
+      return Number.isFinite(parsed) ? parsed : 0
+    }
+    obj.UF_CRM_1745222013992 = parseMoney(obj.UF_CRM_1745222013992)
+    obj.UF_CRM_1759821112055 = parseMoney(obj.UF_CRM_1759821112055)
+    obj.UF_CRM_1742972105926 = parseMoney(obj.UF_CRM_1742972105926)
+    obj.UF_CRM_1742972167794 = parseMoney(obj.UF_CRM_1742972167794)
+    obj.UF_CRM_1744062581756 = parseMoney(obj.UF_CRM_1744062581756)
+  });
+
+  // eslint-disable-next-line no-console
+  console.log('🔍 [getData] dealsLocal2 after parse:', {
+    firstDeal: dealsLocal2[0] ? {
+      ID: dealsLocal2[0].ID,
+      TITLE: dealsLocal2[0].TITLE,
+      STAGE_ID: dealsLocal2[0].STAGE_ID,
+      UF_CRM_1745222013992: dealsLocal2[0].UF_CRM_1745222013992,
+      UF_CRM_1744062581756: dealsLocal2[0].UF_CRM_1744062581756,
+    } : null,
+    dealsWithSumm: dealsLocal2.filter(d => d.UF_CRM_1744062581756 > 0).length,
+    totalSumm: dealsLocal2.reduce((acc, d) => acc + (d.UF_CRM_1744062581756 || 0), 0),
+  });
+
   dealsLocal.forEach(deal => {
     totalRow.value.UF_CRM_1745222013992 += +deal.UF_CRM_1745222013992;
     totalRow.value.UF_CRM_1759821112055 += +deal.UF_CRM_1759821112055;
@@ -1842,11 +3265,26 @@ const getData = async () => {
   table1.value = JSON.parse(JSON.stringify(dealsLocal));
   deals.value = JSON.parse(JSON.stringify(dealsLocal2));
 
+  // eslint-disable-next-line no-console
+  console.log('🔍 [getData] table1 set:', {
+    table1Length: table1.value.length,
+    table1FilteredLength: table1Filtered.value.length,
+    groupedEventsLength: groupedEvents.value?.length,
+    firstTable1Item: table1.value[0] ? {
+      ID: table1.value[0].ID,
+      event: table1.value[0].event,
+      UF_CRM_1742797326: table1.value[0].UF_CRM_1742797326,
+      user: table1.value[0].user,
+    } : null,
+  })
+
+  appliedFilterSignature = buildFilterSignature();
   finishLoading();
   refreshStickyReportTableHeaders();
   } catch (error) {
     console.error('Ошибка при загрузке отчёта:', error);
     showError(error, 'Ошибка при загрузке отчёта');
+    appliedFilterSignature = buildFilterSignature();
     finishLoading();
   }
 };
@@ -1871,6 +3309,14 @@ const getData = async () => {
     overflow-y: visible
     box-sizing: border-box
 
+  .report-page__zoom
+    display: flex
+    flex-direction: column
+    gap: 1rem
+    width: 100%
+    flex: 1 1 auto
+    min-height: 0
+
   .report-page .v-data-table:not(.sticky-report-table)
     width: 100%
     max-width: 100%
@@ -1882,6 +3328,12 @@ const getData = async () => {
     display: flex
     flex-direction: column
     gap: 0
+
+  .report-table-header
+    display: flex
+    align-items: center
+    gap: 1rem
+    margin-bottom: 0.75rem
 
   .report-table-card
     display: flex
@@ -1903,7 +3355,11 @@ const getData = async () => {
     padding: 0 !important
     text-align: left
     line-height: 1.3
-    margin-bottom: 0.75rem
+    margin-bottom: 0 !important
+    flex: 1 1 auto
+
+  .report-table-card > .report-table-title
+    margin-bottom: 0.75rem !important
 
   .report-data-table
     padding: 0
@@ -1929,9 +3385,6 @@ const getData = async () => {
 
     thead th.v-data-table__th .v-data-table-header__content
       justify-content: center !important
-
-    .v-data-table-header__sort-icon
-      display: none !important
 
     tbody .v-data-table__td
       border: 1px solid rgba(0, 0, 0, 0.12) !important
@@ -2118,6 +3571,109 @@ const getData = async () => {
     &:hover
       color: #1d4ed8
 
+  .event-cell
+    display: flex
+    flex-direction: column
+    align-items: flex-start
+    gap: 0.35rem
+    min-width: 0
+
+  .event-cell__title-row
+    display: flex
+    align-items: center
+    gap: 0.35rem
+    min-width: 0
+    width: 100%
+
+  .event-cell__title-row .event-link,
+  .event-cell__title-row > span
+    flex: 1 1 auto
+    min-width: 0
+
+  .event-open-btn
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    gap: 0.1rem
+    flex: 0 0 auto
+    min-width: 36px
+    height: 22px
+    padding: 0 0.3rem
+    border: 1px solid #d1d5db
+    border-radius: 4px
+    background: #ffffff
+    color: #374151
+    cursor: pointer
+    line-height: 1
+
+    &:hover
+      background: #f3f4f6
+      border-color: #9ca3af
+      color: #111827
+
+  .event-checklist-inline
+    width: 100%
+    max-width: 220px
+
+  .event-checklist-inline__tag
+    display: flex
+    flex-direction: column
+    gap: 0.2rem
+    width: 100%
+    padding: 0.2rem 0.35rem
+    border: 1px solid #cfe8e5
+    border-radius: 6px
+    background: #f0faf8
+    color: #0f766e
+    font-size: 0.6875rem
+    font-weight: 700
+    line-height: 1.2
+    text-align: left
+    cursor: pointer
+
+    &:hover
+      background: #dff5f2
+      border-color: #9fd6d1
+
+  .event-checklist-inline__bar
+    display: block
+    width: 100%
+    height: 4px
+    border-radius: 999px
+    background: #dbe7e5
+    overflow: hidden
+
+  .event-checklist-inline__fill
+    display: block
+    height: 100%
+    border-radius: inherit
+    background: #22c55e
+
+  .event-checklist-inline__fill--red
+    background: #ef4444
+
+  .event-checklist-inline__fill--orange
+    background: #f59e0b
+
+  .event-checklist-inline__fill--green
+    background: #22c55e
+
+  .event-checklist-inline__create
+    display: inline-flex
+    align-items: center
+    padding: 0.2rem 0.4rem
+    border: 1px dashed #94a3b8
+    border-radius: 6px
+    background: #fff
+    color: #2563eb
+    font-size: 0.6875rem
+    font-weight: 600
+    cursor: pointer
+
+    &:hover
+      background: #eff6ff
+      border-color: #60a5fa
+
   .event-actions
     display: flex
     justify-content: center
@@ -2154,8 +3710,8 @@ const getData = async () => {
 
   .event-actions-menu
     position: relative
-    min-width: 220px
-    padding: 6px 0 !important
+    min-width: 280px
+    padding: 0 !important
     border: 1px solid #e5e7eb
     border-radius: 10px
     background: #ffffff
@@ -2173,21 +3729,38 @@ const getData = async () => {
       border-left: 1px solid #e5e7eb
       transform: rotate(45deg)
 
-    .event-actions-menu__item
-      min-height: 40px
-      padding-inline: 14px !important
-      color: #111827
+    &--submenu
+      min-width: 240px
 
-      .v-list-item__prepend > .v-icon
+      &::before
+        display: none
+
+    .event-actions-menu__item
+      min-height: 44px
+      padding-inline: 14px !important
+      color: #374151
+      border-bottom: 1px solid #edf0f3
+
+      &:last-child
+        border-bottom: none
+
+      .v-list-item__prepend > .v-icon,
+      .v-list-item__append > .v-icon
         color: #4b5563
         opacity: 1
         font-size: 1.125rem
+
+      .v-list-item__prepend > .v-icon
         margin-inline-end: 10px
 
       .v-list-item-title
+        display: flex
+        align-items: center
+        gap: 0.5rem
         font-size: 0.875rem
         font-weight: 500
         line-height: 1.25
+        color: #374151
 
       &:hover
         background: #f8fafc
@@ -2209,11 +3782,16 @@ const getData = async () => {
     gap: 1rem
     margin-bottom: 0
 
-    h1
-      margin: 0
-      font-size: 1.5rem
-      line-height: 1.2
-      font-weight: 800
+    &__brand
+      display: flex
+      align-items: center
+
+    &__logo
+      display: block
+      width: auto
+      height: 3.25rem
+      max-width: min(100%, 20rem)
+      object-fit: contain
 
   .report-actions.buttons
     width: auto
@@ -2227,7 +3805,7 @@ const getData = async () => {
       font-weight: 500
       font-size: 0.875rem
       line-height: 1.25
-      border-radius: 8px
+      border-radius: 0.25rem
       box-shadow: none
       min-height: 40px
       height: 40px
@@ -2242,34 +3820,35 @@ const getData = async () => {
 
     .report-btn--outlined
       background: #ffffff !important
-      border: 1px solid #e0e0e0 !important
-      color: #0066ff !important
+      border: 1px solid #d1d5db !important
+      color: #111827 !important
 
       .v-btn__overlay,
       .v-btn__underlay
         opacity: 0
 
       .v-icon
-        color: #0066ff !important
+        color: #111827 !important
 
       &:hover
-        background: #f8fafc !important
+        background: #f9fafb !important
+        border-color: #9ca3af !important
 
     .report-btn--filled
-      background: #0066ff !important
-      border: 1px solid #0066ff !important
-      color: #ffffff !important
+      background: #ffffff !important
+      border: 1px solid #d1d5db !important
+      color: #111827 !important
 
       .v-btn__overlay,
       .v-btn__underlay
         opacity: 0
 
       .v-icon
-        color: #ffffff !important
+        color: #111827 !important
 
       &:hover
-        background: #0052cc !important
-        border-color: #0052cc !important
+        background: #f9fafb !important
+        border-color: #9ca3af !important
 
   .filter-card,
   .summary-card,
@@ -2282,6 +3861,145 @@ const getData = async () => {
   .filter-card
     padding: 1rem
     margin-bottom: 0
+
+  .workspace-panel
+    display: flex
+    flex-direction: column
+    gap: 1rem
+
+  .workspace-tabs
+    display: flex
+    flex-wrap: nowrap
+    align-items: stretch
+    width: 100%
+    gap: 0.5rem
+
+  .workspace-tabs__item
+    flex: 1 1 0
+    min-width: 0
+    width: 100%
+    height: 100%
+    text-align: center
+    border: 1px solid #dbe3ee
+    border-radius: 0.75rem
+    background: #f8fafc
+    color: #334155
+    font: inherit
+    font-size: 0.875rem
+    font-weight: 600
+    line-height: 1.2
+    padding: 0.65rem 1rem
+    cursor: pointer
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    text-align: center
+    white-space: normal
+    gap: 0.4rem
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease
+
+    &:hover:not(.workspace-tabs__item--active)
+      background: #f1f5f9
+      border-color: #cbd5e1
+
+    &--active
+      background: #2563eb
+      border-color: #2563eb
+      color: #ffffff
+      box-shadow: 0 8px 18px rgba(37, 99, 235, 0.22)
+
+  .workspace-tabs__item-wrap
+    position: relative
+    display: flex
+    align-items: stretch
+    flex: 1 1 0
+    min-width: 0
+
+  .workspace-tabs__chevron
+    font-size: 0.7rem
+    line-height: 1
+
+  .workspace-tabs__zoom
+    flex: 0 0 auto
+    margin-left: 0.5rem
+
+  .workspace-tab-empty
+    display: flex
+    align-items: center
+    justify-content: center
+    min-height: 8rem
+    border: 1px dashed #dbe3ee
+    border-radius: 0.75rem
+    background: #f8fafc
+    color: #64748b
+    font-size: 0.9375rem
+    text-align: center
+    padding: 1.5rem
+
+  .database-menu__popup
+    position: absolute
+    z-index: 20
+    top: calc(100% + 0.35rem)
+    left: 0
+    right: 0
+    min-width: 15rem
+    padding: 0.45rem
+    border: 1px solid #dce2ea
+    border-radius: 0.625rem
+    background: #ffffff
+    box-shadow: 0 12px 28px rgba(23, 43, 77, 0.13)
+
+  .database-menu__popup-item
+    display: block
+    width: 100%
+    padding: 0.7rem 0.75rem
+    border: 0
+    border-radius: 0.45rem
+    background: transparent
+    color: #263447
+    font: inherit
+    font-size: 0.875rem
+    text-align: left
+    cursor: pointer
+    transition: background-color 0.15s ease, color 0.15s ease
+    display: flex
+    align-items: center
+    gap: 0.5rem
+
+    &:hover
+      background: #eef3ff
+      color: #2864df
+
+  .database-menu__popup-icon
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    flex-shrink: 0
+
+  .database-menu__popup-item--child
+    padding-left: 2.1rem
+
+  .reports-menu__popup
+    display: flex
+    flex-direction: column
+    gap: 0.15rem
+    min-width: 22rem
+    max-width: 26rem
+    max-height: 70vh
+    overflow-y: auto
+
+  .reports-menu__group
+    display: flex
+    flex-direction: column
+
+  .reports-menu__chevron
+    flex: 0 0 auto
+    margin-left: auto
+    color: #94a3b8
+
+  .reports-menu__children
+    display: flex
+    flex-direction: column
 
   .filter-card .filters
     display: grid

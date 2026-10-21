@@ -70,7 +70,8 @@
     </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { ref, computed, watch } from 'vue'
 
 const props = defineProps({

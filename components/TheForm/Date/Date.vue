@@ -8,24 +8,24 @@
         clearable
         prepend-inner-icon="mdi-calendar"
         placeholder="Любая дата"
-        :modelValue="selectedDateName"
+        :modelValue="localSelectedDateName"
         :items="dateNames"
         @update:modelValue="handleOptionChange"
     )
     NumberInput(
-        :showInput="showInput[0]" 
+        :showInput="localShowInput[0]" 
         v-model="daysAgo"
         :maxValue="maxDaysAgo"
         @update:modelValue="update"
     )
     NumberInput(
-        :showInput="showInput[6]"
+        :showInput="localShowInput[6]"
         v-model="daysAhead" 
         :maxValue="maxDaysAhead"
         @update:modelValue="update"
     )
     DateFields(
-          :showInput="showInput"
+          :showInput="localShowInput"
           :monthNames="monthNames"
           :quarterNames="quarterNames"
           :yearNames="yearNames"
@@ -40,7 +40,7 @@
           @update:selectedYear="update"
     )
     DatePickerPanel(
-        :showInput="showInput"
+        :showInput="localShowInput"
         :maxDate="maxDate"
         :minDate="minDate"
         v-model:selectedRange="selectedRange"
@@ -61,7 +61,8 @@
   width: 100%
 </style>
 
-<script>
+<script lang="ts">
+// @ts-nocheck
 import DateFields from './DateFields.vue';
 import DatePickerPanel from './DatePickerPanel.vue';
 import NumberInput from './NumberInput.vue';
@@ -88,14 +89,14 @@ export default {
           const selectedQuarter = quarterNames[Math.floor(today.month() / 3)];
           const selectedHalfYear = halfYearNames[Math.floor(today.month() / 6)];
           const selectedMonth = monthNames[today.month()];
-          const selectedYear = yearNames[1];
+          const selectedYear = today.year();
           const selectedDay = moment()._d;
           const selectedRange = [moment()._d, moment()._d];
 
         return {
             dateNames: ["Любая дата", "Сегодня", "Вчера", "Текущая неделя", "Текущий месяц", "Текущий квартал", "Текущий год", "Прошлая неделя", "Прошлый месяц", "Прошлый квартал", "Прошлый год", "Последние 7 дней", "Последние 30 дней", "Последние 60 дней", "Последние 90 дней", "Последние N дней", "Месяц", "Квартал", "Полугодие", "Год", "Точная дата", "Диапазон"],
-            selectedDateName: "Любая дата",
-            showInput: this.showInput,
+            localSelectedDateName: this.selectedDateName || "Любая дата",
+            localShowInput: [...(this.showInput || [])],
             maxDaysAhead: maxDaysAhead,
             maxDaysAgo: maxDaysAgo,
             daysAgo: 0,
@@ -113,20 +114,22 @@ export default {
             selectedDay: selectedDay,
             selectedRange: selectedRange,
             selectedDate: [],
-            selectedDateIso: this.selectedDateIso,
+            localSelectedDateIso: Array.isArray(this.selectedDateIso)
+              ? [this.selectedDateIso[0] || null, this.selectedDateIso[1] || null]
+              : [null, null],
         }
     },
     methods: {
         handleOptionChange(selectedDateName){
-            this.selectedDateName = selectedDateName;
-            this.showInput[0] = selectedDateName === "Последние N дней";
-            this.showInput[1] = selectedDateName === "Месяц";
-            this.showInput[2] = selectedDateName === "Квартал";
-            this.showInput[3] = selectedDateName === "Год";
-            this.showInput[4] = selectedDateName === "Диапазон";
-            this.showInput[5] = selectedDateName === "Точная дата";
-            this.showInput[6] = selectedDateName === "Следующие N дней";
-            this.showInput[7] = selectedDateName === "Полугодие";
+            this.localSelectedDateName = selectedDateName || "Любая дата";
+            this.localShowInput[0] = this.localSelectedDateName === "Последние N дней";
+            this.localShowInput[1] = this.localSelectedDateName === "Месяц";
+            this.localShowInput[2] = this.localSelectedDateName === "Квартал";
+            this.localShowInput[3] = this.localSelectedDateName === "Год";
+            this.localShowInput[4] = this.localSelectedDateName === "Диапазон";
+            this.localShowInput[5] = this.localSelectedDateName === "Точная дата";
+            this.localShowInput[6] = this.localSelectedDateName === "Следующие N дней";
+            this.localShowInput[7] = this.localSelectedDateName === "Полугодие";
             this.update();
         },
         update(value){
@@ -135,8 +138,11 @@ export default {
             const startMonth = quarterIndex * 3 + 1;
             const monthIndex = this.monthNames.findIndex((item) => item === this.selectedMonth);
 
-            switch (this.selectedDateName) {
+            switch (this.localSelectedDateName) {
             case "Любая дата":
+            case null:
+            case undefined:
+            case "":
                 this.selectedDate[0] = null;
                 this.selectedDate[1] = null;
                 break;
@@ -276,15 +282,27 @@ export default {
                 break;
             }
 
-            this.selectedDateIso[0] = this.selectedDate[0] ? this.selectedDate[0].subtract(12, 'hours').toISOString() : null;
-            this.selectedDateIso[1] = this.selectedDate[1] ? this.selectedDate[1].add(12, 'hours').toISOString() : null;
-            this.$emit('update:selectedDateIso[0]', this.selectedDateIso[0]);
-            this.$emit('update:selectedDateIso[1]', this.selectedDateIso[1]);
-            this.$emit('sendValue', this.selectedDateIso);
+            const fromIso = this.selectedDate[0]
+              ? this.selectedDate[0].clone().subtract(12, 'hours').toISOString()
+              : null;
+            const toIso = this.selectedDate[1]
+              ? this.selectedDate[1].clone().add(12, 'hours').toISOString()
+              : null;
+
+            this.localSelectedDateIso = [fromIso, toIso];
+            this.$emit('update:selectedDateName', this.localSelectedDateName || 'Любая дата');
+            this.$emit('sendValue', [fromIso, toIso]);
+        },
+        /** Принудительно пересчитать и отдать текущий диапазон родителю */
+        flush() {
+            this.update();
+            return Array.isArray(this.localSelectedDateIso)
+              ? [this.localSelectedDateIso[0] || null, this.localSelectedDateIso[1] || null]
+              : [null, null];
         },
     },
     mounted(){
-        this.handleOptionChange(this.selectedDateName)
+        this.handleOptionChange(this.localSelectedDateName)
     }
 }
 </script>

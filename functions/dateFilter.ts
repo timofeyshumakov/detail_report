@@ -66,13 +66,14 @@ export function buildDealListDateFilter(selectedDateIso: DateIsoRange): DealDate
 }
 
 /** Фильтр даты передачи для таблицы "Компании по категориям" (включительно) */
-export function buildCompanyTableDateFilter(selectedDateIso: DateIsoRange): CompanyTableDateFilter {
+export function buildCompanyTableDateFilter(selectedDateIso: DateIsoRange): Partial<CompanyTableDateFilter> {
   const [from, to] = formatDateFilterRange(selectedDateIso);
+  const filter: Partial<CompanyTableDateFilter> = {};
 
-  return {
-    [DEAL_DATE_FROM_FILTER]: from,
-    [DEAL_DATE_TO_FILTER]: to,
-  };
+  if (from) filter[DEAL_DATE_FROM_FILTER] = from;
+  if (to) filter[DEAL_DATE_TO_FILTER] = to;
+
+  return filter;
 }
 
 export const EVENT_START_DATE_FIELD = 'ufCrm38_1745307580193';
@@ -100,6 +101,8 @@ export function isDealWithinDateRange(
   from: string | null,
   to: string | null,
 ): boolean {
+  if (!from && !to) return true;
+
   const date = toCalendarDate(transferDate);
   if (!date) return false;
 

@@ -18,12 +18,13 @@
   v-btn(color="primary" @click="submit") {{ submitButtonText }}
 </template>
 
-<script setup>
+<script setup lang="ts">
+// @ts-nocheck
 import { ref, computed, watch } from 'vue'
 import { callApi } from '../../functions/callApi.ts'
-import { useMyStore } from '../../stores/store.js'
-import { useGlobalStore } from '../../stores/store.js'
-import { useParseStore } from '../../stores/store.js'
+import { useMyStore } from '../../stores/store'
+import { useGlobalStore } from '../../stores/store'
+import { useParseStore } from '../../stores/store'
 import ErrorLog from './ErrorLog.vue'
 import Filtres from './Filtres.vue'
 

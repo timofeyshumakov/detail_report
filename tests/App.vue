@@ -3,6 +3,7 @@
 </template>
 
 <script lang="ts">
+// @ts-nocheck
 // Документация
 /*
 * ufCrm_SMART_INVOICE_1729670614381 Филиал

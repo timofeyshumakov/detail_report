@@ -2,8 +2,8 @@
     .date-fields(v-show="showInput[3] || showInput[2] || showInput[1] || showInput[7]")
       v-autocomplete(
         v-if="showInput[1]"
-        :items="monthNames"
-        :modelValue="selectedMonth"
+        :items="localMonthNames"
+        :modelValue="localSelectedMonth"
         @update:modelValue="updateMonth"
         variant="outlined"
         density="compact"
@@ -13,8 +13,8 @@
       )
       v-autocomplete(
         v-if="showInput[2]"
-        :items="quarterNames"
-        :modelValue="selectedQuarter"
+        :items="localQuarterNames"
+        :modelValue="localSelectedQuarter"
         @update:modelValue="updateQuarter"
         variant="outlined"
         density="compact"
@@ -24,8 +24,8 @@
       )
       v-autocomplete(
         v-if="showInput[7]"
-        :items="halfYearNames"
-        :modelValue="selectedHalfYear"
+        :items="localHalfYearNames"
+        :modelValue="localSelectedHalfYear"
         @update:modelValue="updateHalfYear"
         variant="outlined"
         density="compact"
@@ -35,8 +35,8 @@
       )
       v-autocomplete(
         v-if="showInput[3] || showInput[2] || showInput[1] || showInput[7]"
-        :items="yearNames"
-        :modelValue="selectedYear"
+        :items="localYearNames"
+        :modelValue="localSelectedYear"
         @update:modelValue="updateYear"
         variant="outlined"
         density="compact"
@@ -46,7 +46,8 @@
       )
 </template>
 
-<script>
+<script lang="ts">
+// @ts-nocheck
 export default {
   props: {
     showInput: {
@@ -76,31 +77,31 @@ export default {
   },
   data() {
     return {
-      monthNames: this.monthNames,
-      quarterNames: this.quarterNames,
-      halfYearNames: this.halfYearNames,
-      yearNames: this.yearNames,
-      selectedMonth: this.selectedMonth,
-      selectedQuarter: this.selectedQuarter,
-      selectedHalfYear: this.selectedHalfYear,
-      selectedYear: this.selectedYear,
+      localMonthNames: this.monthNames,
+      localQuarterNames: this.quarterNames,
+      localHalfYearNames: this.halfYearNames,
+      localYearNames: this.yearNames,
+      localSelectedMonth: this.selectedMonth,
+      localSelectedQuarter: this.selectedQuarter,
+      localSelectedHalfYear: this.selectedHalfYear,
+      localSelectedYear: this.selectedYear,
     };
   },
   methods: {
     updateMonth(value) {
-      this.selectedMonth = value;
+      this.localSelectedMonth = value;
       this.$emit('update:selectedMonth', value);
     },
     updateQuarter(value) {
-      this.selectedQuarter = value;
+      this.localSelectedQuarter = value;
       this.$emit('update:selectedQuarter', value);
     },
     updateHalfYear(value) {
-      this.selectedHalfYear = value;
+      this.localSelectedHalfYear = value;
       this.$emit('update:selectedHalfYear', value);
     },
     updateYear(value) {
-      this.selectedYear = value;
+      this.localSelectedYear = value;
       this.$emit('update:selectedYear', value);
     },
   },
