@@ -26,6 +26,23 @@ function getCompanyAudienceIds(company: Record<string, unknown>) {
   return Number.isFinite(id) ? [id] : []
 }
 
+export function getEventObserverIds(event: Record<string, unknown>): number[] {
+  const raw = event?.ufCrm38_1753082810 ?? event?.UF_CRM_38_1753082810
+  if (raw == null || raw === '') return []
+
+  const items = Array.isArray(raw) ? raw : String(raw).split(',')
+  const ids: number[] = []
+
+  for (const item of items) {
+    const parsed = Number(String(item).trim())
+    if (Number.isFinite(parsed) && parsed > 0 && !ids.includes(parsed)) {
+      ids.push(parsed)
+    }
+  }
+
+  return ids
+}
+
 function flattenCallApiResult(result: unknown): any[] {
   if (!Array.isArray(result)) return []
   return result.length && Array.isArray(result[0]) ? result.flat() : result
@@ -158,6 +175,7 @@ export function buildEventDealFieldsFromCompany(
   contactIds: number[] = [],
 ) {
   const audienceIds = getCompanyAudienceIds(company)
+  const observers = getEventObserverIds(event)
 
   return {
     TITLE: company.TITLE,
@@ -166,6 +184,7 @@ export function buildEventDealFieldsFromCompany(
     CATEGORY_ID: String(EVENT_DEAL_CATEGORY_ID),
     CONTACT_IDS: contactIds.length ? contactIds : null,
     COMPANY_ID: company.ID,
+    observers,
     UF_CRM_1742797326: event.id ?? event.ID,
     UF_CRM_1744890618774: company.TITLE,
     UF_CRM_1754290331: contactIds.length ? contactIds : null,

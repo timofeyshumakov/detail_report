@@ -10,7 +10,6 @@ import * as components from 'vuetify/components';
 import * as directives from 'vuetify/directives';
 import { ru } from 'vuetify/locale';
 import VueTheMask from 'vue-the-mask';
-import 'font-awesome/css/font-awesome.css';
 // Components
 import App from './App.vue';
 import './reset.sass';

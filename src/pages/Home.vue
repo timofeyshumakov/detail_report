@@ -625,6 +625,7 @@
       @precise-deal="openPreciseDealForEvent(getEventDealsActionItem())"
       @mass-generation="openMassGenerationForEvent(getEventDealsActionItem())"
       @create-company="openCreateCompanyForEvent(getEventDealsActionItem())"
+      @open-company-catalog="openBitrixPath(buildSponsorCompanyListPath(), { newTab: false })"
       @send-mailing="onEventActionMock(getEventDealsActionItem(), 'Отправить рассылку')"
       @welcome-mailing="openWelcomeMailingForEvent(getEventDealsActionItem())"
       @export-excel="exportEventExcel(getEventDealsActionItem())"
@@ -754,6 +755,8 @@ const checklistTypeDialog = ref({
 });
 const SPONSOR_COMPANY_TYPE_ID = '2'
 const SPONSOR_COMPANY_ASSIGNED_BY_ID = '1614'
+/** Подпись фильтра «Ответственный» — тестовый пользователь */
+const SPONSOR_COMPANY_ASSIGNED_BY_LABEL = 'Тестовый пользователь'
 const workspaceTabs = [
   { id: 'digital-workplace', title: 'Цифровое рабочее место' },
   { id: 'database-work', title: 'Работа с базой' },
@@ -809,7 +812,8 @@ const databaseMenuChildren = [
     id: 'companies',
     title: 'Компании',
     icon: 'mdi-domain',
-    path: '/crm/company/list/',
+    // Фильтр: тип компании «Спонсор» + ответственный — тестовый пользователь
+    path: buildSponsorCompanyListPath(),
   },
   {
     id: 'contacts',
@@ -818,6 +822,17 @@ const databaseMenuChildren = [
     path: '/crm/contact/list/',
   },
 ];
+
+/** Фильтр списка компаний: тип «Спонсор» + ответственный (тестовый пользователь) */
+function buildSponsorCompanyListPath() {
+  const params = new URLSearchParams()
+  params.set('apply_filter', 'Y')
+  params.set('COMPANY_TYPE', SPONSOR_COMPANY_TYPE_ID)
+  params.set('COMPANY_TYPE_label', 'Спонсор')
+  params.set('ASSIGNED_BY_ID', SPONSOR_COMPANY_ASSIGNED_BY_ID)
+  params.set('ASSIGNED_BY_ID_label', SPONSOR_COMPANY_ASSIGNED_BY_LABEL)
+  return `/crm/company/list/?${params.toString()}`
+}
 
 const openReportsGroups = ref([]);
 const isDatabaseMenuOpen = ref(false);
@@ -888,16 +903,6 @@ function onWorkspaceTabClick(tabId) {
   isReportsMenuOpen.value = false
   openReportsGroups.value = []
   activeWorkspaceTab.value = tabId
-}
-
-function buildSponsorCompanyListPath() {
-  const params = new URLSearchParams()
-  params.set('apply_filter', 'Y')
-  params.set('COMPANY_TYPE', SPONSOR_COMPANY_TYPE_ID)
-  params.set('COMPANY_TYPE_label', 'Спонсор')
-  params.set('ASSIGNED_BY_ID', SPONSOR_COMPANY_ASSIGNED_BY_ID)
-  params.set('ASSIGNED_BY_ID_label', SPONSOR_COMPANY_ASSIGNED_BY_ID)
-  return `/crm/company/list/?${params.toString()}`
 }
 
 function openSponsorCompaniesList() {
@@ -3014,16 +3019,9 @@ function scheduleFilterAutoRefresh() {
   }, FILTER_AUTO_REFRESH_DELAY_MS);
 }
 
-watch(
-  () => [
-    filters.value.selected.departments,
-    filters.value.selected.category,
-    selectedDateName.value,
-    selectedDateIso.value,
-  ],
-  () => scheduleFilterAutoRefresh(),
-  { deep: true },
-)
+// Все данные загружаются один раз при старте (onMounted → getData).
+// Фильтры применяются на клиенте через computed (table1Filtered / filteredDealsForEvents),
+// поэтому повторная загрузка с сервера при смене фильтров не нужна.
 
 function resolveReportEventIds(eventItems, dateFrom, dateTo, selectedEventIds = []) {
   const selected = asArray(selectedEventIds).map(String).filter(Boolean)
@@ -3066,15 +3064,6 @@ const getData = async () => {
     UF_CRM_1744062581756: 0,
   };
 
-  const selectedCategory = asArray(filters.value.selected.category)
-  const selectedEvents = asArray(filters.value.selected.events)
-
-  const filterCategory = selectedCategory.length === 0
-    ? asArray(filters.value.value.category).map((item) => item.id)
-    : selectedCategory
-
-  const [dateFrom, dateTo] = formatDateFilterRange(selectedDateIso.value)
-
   loadingProgress.value = Math.max(loadingProgress.value, 18)
   loadingMessage.value = 'Загрузка мероприятий…'
 
@@ -3106,37 +3095,15 @@ const getData = async () => {
   await loadEventChecklists(events.value)
   filters.value.value.audience = buildAudienceOptions(events.value)
 
-  // Дата = период мероприятий: сначала ID событий, потом сделки только по ним.
-  // Фильтр по конкретным выбранным мероприятиям намеренно не передаём сюда —
-  // он применяется на клиенте (filteredDealsForEvents/table1Filtered), чтобы
-  // смена выбранных мероприятий не требовала повторной загрузки с сервера.
-  const filterEvents = resolveReportEventIds(
-    events.value,
-    dateFrom,
-    dateTo,
-  )
-
-  // Ответственный фильтруется на клиенте (table1Filtered), в запрос не передаём,
-  // чтобы смена ответственного не требовала повторной загрузки с сервера
-  // и не влияла на агрегаты по мероприятию (% сбора и т.п.)
-
-  // Используем DYNAMIC_1052 вместо UF_CRM_1742797326 для handler
-  const eventIdsForFilter = filterEvents.length
-    ? filterEvents
-    : asArray(filters.value.value.events).map((item) => String(item.id))
-
-  // eslint-disable-next-line no-console
-  console.log('🔍 [getData] Event filter debug:', {
-    filterEventsCount: filterEvents.length,
-    selectedEventsCount: selectedEvents.length,
-    eventIdsForFilterCount: eventIdsForFilter.length,
-    firstEventIds: eventIdsForFilter.slice(0, 5),
-  })
+  // Загружаем сразу ВСЕ сделки по всем мероприятиям и стадиям.
+  // Все фильтры (дата, категория, ответственный, мероприятия, ЦА) применяются на клиенте
+  // через filteredDealsForEvents / table1Filtered — без повторных запросов на сервер.
+  // Используем DYNAMIC_1052 вместо UF_CRM_1742797326 для handler.
+  const eventIdsForFilter = asArray(filters.value.value.events).map((item) => String(item.id))
 
   const eventFilter = buildEventDealFilter(eventIdsForFilter)
 
   const dealFiltersForEvents = {
-    STAGE_ID: filterCategory,
     ...eventFilter,
   }
 
@@ -3148,7 +3115,7 @@ const getData = async () => {
   let dealsLocal2 = [];
   let dealsLocal = [];
   try {
-    if (!filterEvents.length) {
+    if (!eventIdsForFilter.length) {
       dealsLocal2 = []
       dealsLocal = []
     } else {
@@ -3157,15 +3124,8 @@ const getData = async () => {
         DEAL_SELECT_FIELDS_WITH_COMMENTS,
         rateLimitFetchOptions,
       );
-      const [dateFromDeal, dateToDeal] = formatDateFilterRange(selectedDateIso.value)
-      const hasDealDateFilter = Boolean(dateFromDeal || dateToDeal)
-      dealsLocal = hasDealDateFilter
-        ? dealsLocal2.filter((deal) => isDealWithinDateRange(
-          deal?.UF_CRM_1744096783472,
-          dateFromDeal,
-          dateToDeal,
-        ))
-        : dealsLocal2
+      // Дата сделки фильтруется на клиенте (table1Filtered), поэтому грузим всё сразу.
+      dealsLocal = dealsLocal2
     }
   } catch (error) {
     console.error('Ошибка при получении сделок:', error);

@@ -1,26 +1,46 @@
 # syntax=docker/dockerfile:1
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
+# Сборка фронтенда (Vite)
+ARG NODE_VERSION=22-alpine
 
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
+FROM node:${NODE_VERSION} AS builder
 
-ARG NODE_VERSION=22.8.0
+WORKDIR /app
 
-FROM node:${NODE_VERSION}-alpine
+COPY package.json package-lock.json* ./
 
-# Копируем package.json
-COPY package*.json ./
+RUN npm ci
 
-# Копируем остальные файлы приложения
 COPY . .
 
-# Устанавливаем зависимости
-RUN npm install
+RUN npm run build
 
-# Определите команду, которая будет выполнена при запуске контейнера
-CMD ["npm run dev"]
+# Продакшен: статика + nginx
+FROM nginx:alpine AS production
 
-# Откройте порт
-EXPOSE 5173
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+RUN rm -f /etc/nginx/conf.d/default.conf && \
+    printf '%s\n' \
+      'server {' \
+      '    listen 80;' \
+      '    listen [::]:80;' \
+      '    server_name _;' \
+      '    root /usr/share/nginx/html;' \
+      '    index index.html;' \
+      '    gzip on;' \
+      '    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;' \
+      '    location / {' \
+      '        try_files $uri $uri/ /index.html;' \
+      '    }' \
+      '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {' \
+      '        try_files $uri =404;' \
+      '        expires 7d;' \
+      '        add_header Cache-Control "public, immutable";' \
+      '    }' \
+      '}' \
+      > /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

@@ -23,6 +23,32 @@
 
 // Reset
 
+// Ensure tables stretch to full width and columns align across tables
+.table-wrap
+  overflow-x: hidden
+  width: 100%
+  box-sizing: border-box
+
+
+.contacts-table
+  width: 100%
+  table-layout: fixed
+  border-collapse: collapse
+
+
+.contacts-table th,
+.contacts-table td
+  padding: 12px 8px
+  word-break: break-word
+  overflow-wrap: anywhere
+  text-align: left
+
+
+/* Ensure equal column widths across all contacts tables */
+.contacts-table th,
+.contacts-table td
+  width: 14.2857% /* 100% / 7 columns */
+
 *
     padding: 0
     margin: 0

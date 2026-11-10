@@ -32,7 +32,6 @@
   
 <script lang="ts">
 // @ts-nocheck
-import * as XLSX from "xlsx";
 import { useMyStore } from '../stores/store'; 
 
   export default {

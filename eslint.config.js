@@ -1,40 +1,42 @@
-import globals from "globals";
-import pluginJs from "@eslint/js";
-import tseslint from "typescript-eslint";
-import pluginVue from "eslint-plugin-vue";
-
+import globals from 'globals'
+import pluginJs from '@eslint/js'
+import tseslint from 'typescript-eslint'
+import pluginVue from 'eslint-plugin-vue'
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
-  {files: ["src/*.{js,mjs,cjs,ts,vue}"]},
-  {languageOptions: { globals: globals.browser }},
+  {
+    ignores: ['dist/**', 'node_modules/**'],
+  },
+  {
+    files: ['**/*.{js,mjs,cjs,ts,vue}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: globals.browser,
+    },
+  },
   pluginJs.configs.recommended,
   ...tseslint.configs.recommended,
-  ...pluginVue.configs["flat/essential"],
+  ...pluginVue.configs['flat/essential'],
   {
-    "env": {
-      "browser": true,
-      "es2022": true
-    },
-    "extends": [
-      "plugin:vue/essential",
-      "eslint:recommended"
-    ],
-    "plugins": [
-      "vue"
-    ],
-    "parserOptions": {
-      "ecmaVersion": 12
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+      },
     },
     rules: {
-      "vue/no-empty-pattern": "error",
-      "no-console": "warn",
-      "no-alert": "warn",
-      "no-side-effects-in-computed-properties": "off",
-      "no-explicit-any": "off",
-      "no-case-declarations": "off",
-      "ban-ts-comment": "off",
-    }
+      'vue/no-empty-pattern': 'error',
+    },
   },
-  {files: ["src/*.vue"], languageOptions: {parserOptions: {parser: tseslint.parser}}},
-];
+  {
+    rules: {
+      'no-console': 'warn',
+      'no-alert': 'warn',
+      'no-case-declarations': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/ban-ts-comment': 'off',
+    },
+  },
+]

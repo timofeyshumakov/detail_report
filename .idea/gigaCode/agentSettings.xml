@@ -5,20 +5,24 @@
     <option name="autoApprovedCommands">
       <list>
         <Execute>
-          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response6.json" />
+          <option name="pattern" value="wc *" />
         </Execute>
         <Execute>
-          <option name="pattern" value="powershell -ExecutionPolicy Bypass -File &quot;C:\papki\work\web\bitrix24\ittochka\detail-report\.tmp-batch-check5.ps1&quot;" />
+          <option name="pattern" value="Invoke-WebRequest -Uri &quot;https://api.github.com/repos/timofeyshumakov/mdg-accounts/contents/src/features/crm?ref=27719668e17cb1d96ccd5547cc90289392582df4&quot; -UseBasicParsing" />
         </Execute>
         <Execute>
-          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response7.json" />
+          <option name="pattern" value="Invoke-WebRequest -Uri &quot;https://api.github.com/repos/timofeyshumakov/mdg-accounts/contents/public/assets?ref=27719668e17cb1d96ccd5547cc90289392582df4&quot; -UseBasicParsing" />
         </Execute>
         <Execute>
-          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response8.json" />
+          <option name="pattern" value="cd *" />
         </Execute>
-        <Execute>
-          <option name="pattern" value="curl.exe -s -X POST &quot;https://master.rymar-consulting.ru/request/handler.php&quot; -H &quot;Content-Type: application/json&quot; --data-binary @C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-request.json -o C:/papki/work/web/bitrix24/ittochka/detail-report/.tmp-test-response9.json" />
-        </Execute>
+      </list>
+    </option>
+    <option name="autoApprovedReads">
+      <list>
+        <Read>
+          <option name="pattern" value="$PROJECT_DIR$/../detail-report/src/*" />
+        </Read>
       </list>
     </option>
   </component>

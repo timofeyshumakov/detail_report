@@ -9,13 +9,14 @@
     scrim="false"
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <v-card class="event-deals-dialog">
-      <div class="event-deals-dialog__top">
-        <div class="event-deals-dialog__header">
-          <div class="event-deals-dialog__header-main">
-            <h1 class="event-deals-dialog__title" :title="eventTitle">{{ eventTitle }}</h1>
-            <p v-if="eventSubtitle" class="event-deals-dialog__subtitle" :title="eventSubtitle">{{ eventSubtitle }}</p>
-            <div v-if="eventDateLabel || eventCity || eventChecklist.itemId || eventChecklistLoading" class="event-deals-dialog__meta">
+    <v-card class="event-deals-dialog event-deals-dialog--scrollable">
+      <v-card-text class="event-deals-dialog__content event-deals-dialog__content--scrollable">
+        <div class="event-deals-dialog__top">
+          <div class="event-deals-dialog__header">
+            <div class="event-deals-dialog__header-main">
+              <h1 class="event-deals-dialog__title" :title="eventTitle">{{ eventTitle }}</h1>
+              <p v-if="eventSubtitle" class="event-deals-dialog__subtitle" :title="eventSubtitle">{{ eventSubtitle }}</p>
+              <div v-if="eventDateLabel || eventCity || eventChecklist.itemId || eventChecklistLoading" class="event-deals-dialog__meta">
               <span v-if="eventDateLabel" class="event-deals-dialog__meta-item">
                 <v-icon size="18" icon="mdi-calendar-month-outline" />
                 <span>{{ eventDateLabel }}</span>
@@ -188,128 +189,146 @@
         </div>
       </div>
 
-      <v-card-text class="event-deals-dialog__content" :style="zoomStyle">
-        <div v-if="isDialogLoading" class="event-deals-dialog__loading">
-          <v-progress-circular
-            indeterminate
-            size="42"
-            width="3"
-            color="#2563eb"
-          />
-          <span class="event-deals-dialog__loading-text">
-            {{ refreshing ? 'Загрузка сделок…' : 'Загрузка контактов…' }}
-          </span>
-        </div>
-        <div v-else class="event-deals-dialog__panels">
+      <div v-if="isDialogLoading" class="event-deals-dialog__loading">
+        <v-progress-circular
+          indeterminate
+          size="42"
+          width="3"
+          color="#2563eb"
+        />
+        <span class="event-deals-dialog__loading-text">
+          {{ refreshing ? 'Загрузка сделок…' : 'Загрузка контактов…' }}
+        </span>
+      </div>
+      <div v-else class="event-actions-panel">
+        <!-- Работа с компаниями: генератор разбит на отдельные кнопки -->
+        <section class="event-actions-group">
+          <header class="event-actions-group__head">
+            <span class="event-actions-group__icon">
+              <v-icon size="18" icon="mdi-account-multiple-plus-outline" />
+            </span>
+            <div class="event-actions-group__titles">
+              <h2 class="event-actions-group__title">Работа с компаниями</h2>
+              <p class="event-actions-group__subtitle">Добавление и управление базой мероприятия</p>
+            </div>
+          </header>
+
+          <div class="event-actions-grid">
+            <button
+              type="button"
+              class="event-action-card"
+              @click="emitAction('create-company')"
+            >
+              <span class="event-action-card__icon">
+                <v-icon size="16" icon="mdi-plus" />
+              </span>
+              <span class="event-action-card__body">
+                <span class="event-action-card__title">Создать новую компанию</span>
+                <span class="event-action-card__hint">Новая запись в справочнике</span>
+              </span>
+              <v-icon size="14" icon="mdi-arrow-top-right" class="event-action-card__arrow" />
+            </button>
+
+            <button
+              type="button"
+              class="event-action-card"
+              @click="emitAction('precise-deal')"
+            >
+              <span class="event-action-card__icon">
+                <v-icon size="16" icon="mdi-account-search-outline" />
+              </span>
+              <span class="event-action-card__body">
+                <span class="event-action-card__title">Точечное добавление компании</span>
+                <span class="event-action-card__hint">Выбрать из существующей базы</span>
+              </span>
+              <v-icon size="14" icon="mdi-arrow-top-right" class="event-action-card__arrow" />
+            </button>
+
+            <button
+              type="button"
+              class="event-action-card"
+              @click="emitAction('mass-generation')"
+            >
+              <span class="event-action-card__icon">
+                <v-icon size="16" icon="mdi-view-grid-outline" />
+              </span>
+              <span class="event-action-card__body">
+                <span class="event-action-card__title">Массовая генерация</span>
+                <span class="event-action-card__hint">Подобрать компании по условиям</span>
+              </span>
+              <v-icon size="14" icon="mdi-arrow-top-right" class="event-action-card__arrow" />
+            </button>
+
+            <button
+              type="button"
+              class="event-action-card"
+              @click="emitAction('open-company-catalog')"
+            >
+              <span class="event-action-card__icon">
+                <v-icon size="16" icon="mdi-database-outline" />
+              </span>
+              <span class="event-action-card__body">
+                <span class="event-action-card__title">Открыть справочник компаний</span>
+                <span class="event-action-card__hint">Просмотреть общую базу</span>
+              </span>
+              <v-icon size="14" icon="mdi-arrow-top-right" class="event-action-card__arrow" />
+            </button>
+          </div>
+        </section>
+
+        <!-- Другое: рассылка и экспорт без разбивки -->
+        <section class="event-actions-group event-actions-group--side">
+          <header class="event-actions-group__head">
+            <span class="event-actions-group__icon">
+              <v-icon size="18" icon="mdi-dots-horizontal" />
+            </span>
+            <div class="event-actions-group__titles">
+              <h2 class="event-actions-group__title">Другое</h2>
+              <p class="event-actions-group__subtitle">Коммуникации и выгрузка данных</p>
+            </div>
+          </header>
+
+          <div class="event-actions-grid event-actions-grid--single">
+            <button
+              type="button"
+              class="event-action-card"
+              @click="emitAction('welcome-mailing')"
+            >
+              <span class="event-action-card__icon">
+                <v-icon size="16" icon="mdi-email-outline" />
+              </span>
+              <span class="event-action-card__body">
+                <span class="event-action-card__title">Отправить рассылку</span>
+                <span class="event-action-card__hint">Выбранным компаниям или всей выборке</span>
+              </span>
+              <v-icon size="14" icon="mdi-arrow-top-right" class="event-action-card__arrow" />
+            </button>
+
+            <button
+              type="button"
+              class="event-action-card"
+              :disabled="scienceExporting"
+              @click="emitAction('export-excel')"
+            >
+              <span class="event-action-card__icon">
+                <v-icon size="16" icon="mdi-tray-arrow-up" />
+              </span>
+              <span class="event-action-card__body">
+                <span class="event-action-card__title">
+                  {{ scienceExporting ? 'Формирование…' : 'Экспорт' }}
+                </span>
+                <span class="event-action-card__hint">Выгрузить таблицу в Excel</span>
+              </span>
+              <v-icon size="14" icon="mdi-arrow-top-right" class="event-action-card__arrow" />
+            </button>
+          </div>
+        </section>
+      </div>
+
+      <div v-if="!isDialogLoading" class="event-deals-dialog__panels">
           <section class="event-deals-dialog__categories">
             <div class="event-deals-dialog__panel-head">
               <h2 class="event-deals-dialog__panel-title">Категории</h2>
-              <div class="event-deals-dialog__actions">
-                <div class="event-action-dropdown" @click.stop>
-                  <button
-                    type="button"
-                    class="event-action-btn"
-                    :class="{ 'event-action-btn--open': openActionMenu === 'generator' }"
-                    @click="toggleActionMenu('generator')"
-                  >
-                    <v-icon size="16" icon="mdi-database-outline" />
-                    <span>Генератор базы данных</span>
-                    <v-icon size="14" icon="mdi-chevron-down" />
-                  </button>
-                  <div
-                    v-if="openActionMenu === 'generator'"
-                    class="event-action-dropdown__menu"
-                  >
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      @click="emitAction('precise-deal')"
-                    >
-                      Точечное добавление
-                    </button>
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      @click="emitAction('mass-generation')"
-                    >
-                      Массовая генерация
-                    </button>
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      @click="emitAction('create-company')"
-                    >
-                      Создание компании
-                    </button>
-                  </div>
-                </div>
-
-                <div class="event-action-dropdown" @click.stop>
-                  <button
-                    type="button"
-                    class="event-action-btn"
-                    :class="{ 'event-action-btn--open': openActionMenu === 'mailing' }"
-                    @click="toggleActionMenu('mailing')"
-                  >
-                    <v-icon size="16" icon="mdi-email-outline" />
-                    <span>Отправить рассылку</span>
-                    <v-icon size="14" icon="mdi-chevron-down" />
-                  </button>
-                  <div
-                    v-if="openActionMenu === 'mailing'"
-                    class="event-action-dropdown__menu"
-                  >
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      @click="emitAction('send-mailing')"
-                    >
-                      Отправить рассылку
-                    </button>
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      @click="emitAction('welcome-mailing')"
-                    >
-                      Отправить приветственную рассылку
-                    </button>
-                  </div>
-                </div>
-
-                <div class="event-action-dropdown" @click.stop>
-                  <button
-                    type="button"
-                    class="event-action-btn"
-                    :class="{ 'event-action-btn--open': openActionMenu === 'export' }"
-                    :disabled="scienceExporting"
-                    @click="toggleActionMenu('export')"
-                  >
-                    <v-icon size="16" icon="mdi-tray-arrow-up" />
-                    <span>{{ scienceExporting ? 'Формирование…' : 'Экспорт' }}</span>
-                    <v-icon size="14" icon="mdi-chevron-down" />
-                  </button>
-                  <div
-                    v-if="openActionMenu === 'export'"
-                    class="event-action-dropdown__menu"
-                  >
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      @click="emitAction('export-excel')"
-                    >
-                      Экспорт отчета в Excel
-                    </button>
-                    <button
-                      type="button"
-                      class="event-action-dropdown__item"
-                      :disabled="scienceExporting"
-                      @click="emitAction('export-science')"
-                    >
-                      Экспорт научной программы
-                    </button>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div class="event-deals-dialog__tabs">
@@ -346,7 +365,10 @@
           </section>
         </div>
 
-        <div class="event-deals-table-card">
+        <div
+          class="event-deals-table-card"
+          :style="zoomStyle"
+        >
           <div class="event-deals-table-wrap">
             <table class="event-deals-table">
               <thead>
@@ -363,7 +385,7 @@
                       <span />
                     </label>
                   </th>
-                  <th>
+                  <th class="col-selection-summary">
                     <div class="selection-summary">
                       <span>Выбрано: {{ selectedDealIds.length }}</span>
                       <button
@@ -377,27 +399,29 @@
                   </th>
                   <th class="col-responsible">Ответственный <span class="sort-arrows">↕</span></th>
                   <th>Этап <span class="sort-arrows">↕</span></th>
+                  <th class="col-status-participation">Статус участия</th>
+                  <th class="col-deal-total">Общая сумма</th>
+                  <th class="col-deal-parts">Другие суммы</th>
                   <th>Дата звонка</th>
                   <th class="col-comment">Комментарий</th>
-                  <th class="col-status-participation">Статус участия</th>
-                  <th>Предв. сумма</th>
-                  <th>Финал. сумма</th>
-                  <th>Доверенное лицо</th>
-                  <th>Дата передачи</th>
                   <th>Кв.м</th>
                   <th>№ стенда</th>
+                  <th>Доверенное лицо</th>
                   <th class="col-linked-spa">Доп. опции</th>
                   <th class="col-linked-spa">Коммерция</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-if="!pagedDeals.length">
-                  <td colspan="15" class="event-deals-table__empty">Сделки не найдены</td>
+                  <td colspan="14" class="event-deals-table__empty">Сделки не найдены</td>
                 </tr>
                 <tr
                   v-for="deal in pagedDeals"
                   :key="deal.ID"
-                  :class="{ 'event-deals-table__row--selected': isDealSelected(deal.ID) }"
+                  :class="[
+                    `event-deals-table__row--stage-${dealStageGroup(deal)}`,
+                    { 'event-deals-table__row--selected': isDealSelected(deal.ID) },
+                  ]"
                 >
                   <td class="selection-column">
                     <label class="table-checkbox">
@@ -433,13 +457,14 @@
                           type="button"
                           class="deal-company__audience-btn"
                           title="Мед. товары по ЦА"
-                          @click.stop="toggleMedicalCatalogMenu(deal)"
+                          @click.stop="toggleMedicalCatalogMenu(deal, $event)"
                         >
                           Мед. товары по ЦА
                         </button>
                         <div
                           v-if="isMedicalCatalogMenuOpen(deal.ID)"
                           class="deal-company__med-menu-popup"
+                          :style="{ top: openMedicalCatalogPosition.top + 'px', left: openMedicalCatalogPosition.left + 'px' }"
                           @click.stop
                         >
                           <button
@@ -524,6 +549,105 @@
                       </v-chip>
                     </div>
                   </td>
+                  <td class="col-status-participation status-participation-cell">
+                    <div class="linked-spa-cell status-participation-cell__inner">
+                      <v-autocomplete
+                        :model-value="getParticipationStatusId(deal)"
+                        :items="participationStatusOptions"
+                        item-title="title"
+                        item-value="id"
+                        density="compact"
+                        variant="outlined"
+                        hide-details
+                        clearable
+                        placeholder="—"
+                        :loading="participationStatusesLoading"
+                        :disabled="isParticipationStatusSaving(deal.ID)"
+                        class="status-participation-select"
+                        @update:model-value="(value) => updateParticipationStatus(deal, value)"
+                      />
+                      <button
+                        type="button"
+                        class="linked-spa-add"
+                        title="Добавить статус участия"
+                        @click="openCreateParticipationStatus(deal)"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </td>
+                  <!-- Общая сумма сделки -->
+                  <td class="deal-total-cell">
+                    <div class="deal-total-cell__content">
+                      <div
+                        v-if="isEditingCell(deal.ID, DEAL_REPORT_SUM_FIELD)"
+                        class="cell-editor deal-total-cell__editor"
+                      >
+                        <input
+                          :ref="(el) => setCellInputRef(deal.ID, DEAL_REPORT_SUM_FIELD, el)"
+                          v-model="editingCell.draft"
+                          type="text"
+                          inputmode="decimal"
+                          class="cell-editor__input"
+                          :disabled="isCellSaving(deal.ID, DEAL_REPORT_SUM_FIELD)"
+                          @keydown.enter.prevent="commitCellEdit(deal)"
+                          @keydown.esc.prevent="cancelCellEdit"
+                          @blur="commitCellEdit(deal)"
+                        >
+                      </div>
+                      <button
+                        v-else
+                        type="button"
+                        class="editable-cell deal-total-cell__value"
+                        :class="{ 'editable-cell--empty': !dealSumTotal(deal) }"
+                        title="Нажмите, чтобы изменить"
+                        @click="startCellEdit(deal, DEAL_REPORT_SUM_FIELD)"
+                      >
+                        {{ formatMoneyOrZero(dealSumTotal(deal)) }}
+                      </button>
+                    </div>
+                  </td>
+                  <!-- Другие суммы: составные части сделки -->
+                  <td class="deal-parts-cell">
+                    <div class="deal-parts-cell__content">
+                    <div
+                      v-for="part in dealSumParts(deal)"
+                      :key="part.key"
+                      class="deal-parts-cell__row"
+                      :data-sum-part="part.key"
+                    >
+                      <span class="deal-parts-cell__label">{{ part.label }}</span>
+                      <div class="deal-parts-cell__value">
+                        <div
+                          v-if="isEditingCell(deal.ID, part.field)"
+                          class="cell-editor"
+                        >
+                          <input
+                            :ref="(el) => setCellInputRef(deal.ID, part.field, el)"
+                            v-model="editingCell.draft"
+                            type="text"
+                            inputmode="decimal"
+                            class="cell-editor__input"
+                            :disabled="isCellSaving(deal.ID, part.field)"
+                            @keydown.enter.prevent="commitCellEdit(deal)"
+                            @keydown.esc.prevent="cancelCellEdit"
+                            @blur="commitCellEdit(deal)"
+                          >
+                        </div>
+                        <button
+                          v-else
+                          type="button"
+                          class="editable-cell"
+                          :class="{ 'editable-cell--empty': !part.value }"
+                          title="Нажмите, чтобы изменить"
+                          @click="startCellEdit(deal, part.field)"
+                        >
+                          {{ formatMoneyOrZero(part.value) }}
+                        </button>
+                      </div>
+                    </div>
+                    </div>
+                  </td>
                   <td>
                     <div
                       v-if="isEditingCell(deal.ID, LAST_CALL_DATE_FIELD)"
@@ -562,134 +686,6 @@
                       <span class="comment-cell__text">
                         {{ formatCommentOrDash(deal[COMMENT_FIELD]) }}
                       </span>
-                    </button>
-                  </td>
-                  <td class="col-status-participation status-participation-cell">
-                    <div class="linked-spa-cell status-participation-cell__inner">
-                      <v-autocomplete
-                        :model-value="getParticipationStatusId(deal)"
-                        :items="participationStatusOptions"
-                        item-title="title"
-                        item-value="id"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
-                        clearable
-                        placeholder="—"
-                        :loading="participationStatusesLoading"
-                        :disabled="isParticipationStatusSaving(deal.ID)"
-                        class="status-participation-select"
-                        @update:model-value="(value) => updateParticipationStatus(deal, value)"
-                      />
-                      <button
-                        type="button"
-                        class="linked-spa-add"
-                        title="Добавить статус участия"
-                        @click="openCreateParticipationStatus(deal)"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </td>
-                  <td>
-                    <div
-                      v-if="isEditingCell(deal.ID, PRELIMINARY_SUM_FIELD)"
-                      class="cell-editor"
-                    >
-                      <input
-                        :ref="(el) => setCellInputRef(deal.ID, PRELIMINARY_SUM_FIELD, el)"
-                        v-model="editingCell.draft"
-                        type="text"
-                        inputmode="decimal"
-                        class="cell-editor__input"
-                        :disabled="isCellSaving(deal.ID, PRELIMINARY_SUM_FIELD)"
-                        @keydown.enter.prevent="commitCellEdit(deal)"
-                        @keydown.esc.prevent="cancelCellEdit"
-                        @blur="commitCellEdit(deal)"
-                      >
-                    </div>
-                    <button
-                      v-else
-                      type="button"
-                      class="editable-cell"
-                      title="Нажмите, чтобы изменить"
-                      @click="startCellEdit(deal, PRELIMINARY_SUM_FIELD)"
-                    >
-                      {{ formatMoney(deal[PRELIMINARY_SUM_FIELD]) }}
-                    </button>
-                  </td>
-                  <td>
-                    <div
-                      v-if="isEditingCell(deal.ID, 'UF_CRM_1759821112055')"
-                      class="cell-editor"
-                    >
-                      <input
-                        :ref="(el) => setCellInputRef(deal.ID, 'UF_CRM_1759821112055', el)"
-                        v-model="editingCell.draft"
-                        type="text"
-                        inputmode="decimal"
-                        class="cell-editor__input"
-                        :disabled="isCellSaving(deal.ID, 'UF_CRM_1759821112055')"
-                        @keydown.enter.prevent="commitCellEdit(deal)"
-                        @keydown.esc.prevent="cancelCellEdit"
-                        @blur="commitCellEdit(deal)"
-                      >
-                    </div>
-                    <button
-                      v-else
-                      type="button"
-                      class="editable-cell"
-                      title="Нажмите, чтобы изменить"
-                      @click="startCellEdit(deal, 'UF_CRM_1759821112055')"
-                    >
-                      {{ formatMoneyOrDash(deal.UF_CRM_1759821112055) }}
-                    </button>
-                  </td>
-                  <td class="trusted-person-cell">
-                    <v-autocomplete
-                      :model-value="getTrustedPersonId(deal)"
-                      :items="getTrustedPersonOptions(deal)"
-                      item-title="title"
-                      item-value="id"
-                      density="compact"
-                      variant="outlined"
-                      hide-details
-                      clearable
-                      auto-select-first
-                      :loading="isTrustedPersonSaving(deal.ID) || isDealContactsLoading(deal.ID)"
-                      :disabled="isTrustedPersonSaving(deal.ID)"
-                      placeholder="Выбрать"
-                      class="trusted-person-autocomplete"
-                      :menu-props="{ zIndex: 3300 }"
-                      @focus="ensureDealContactsLoaded(deal)"
-                      @click="ensureDealContactsLoaded(deal)"
-                      @update:model-value="(value) => updateTrustedPerson(deal, value)"
-                    />
-                  </td>
-                  <td>
-                    <div
-                      v-if="isEditingCell(deal.ID, 'UF_CRM_1744096783472')"
-                      class="cell-editor"
-                    >
-                      <input
-                        :ref="(el) => setCellInputRef(deal.ID, 'UF_CRM_1744096783472', el)"
-                        v-model="editingCell.draft"
-                        type="date"
-                        class="cell-editor__input"
-                        :disabled="isCellSaving(deal.ID, 'UF_CRM_1744096783472')"
-                        @keydown.enter.prevent="commitCellEdit(deal)"
-                        @keydown.esc.prevent="cancelCellEdit"
-                        @blur="commitCellEdit(deal)"
-                      >
-                    </div>
-                    <button
-                      v-else
-                      type="button"
-                      class="editable-cell"
-                      title="Нажмите, чтобы изменить"
-                      @click="startCellEdit(deal, 'UF_CRM_1744096783472')"
-                    >
-                      {{ formatDateValue(deal.UF_CRM_1744096783472) }}
                     </button>
                   </td>
                   <td>
@@ -744,6 +740,27 @@
                     >
                       {{ formatPlainOrDash(deal.UF_CRM_1755788950300) }}
                     </button>
+                  </td>
+                  <td class="trusted-person-cell">
+                    <v-autocomplete
+                      :model-value="getTrustedPersonId(deal)"
+                      :items="getTrustedPersonOptions(deal)"
+                      item-title="title"
+                      item-value="id"
+                      density="compact"
+                      variant="outlined"
+                      hide-details
+                      clearable
+                      auto-select-first
+                      :loading="isTrustedPersonSaving(deal.ID) || isDealContactsLoading(deal.ID)"
+                      :disabled="isTrustedPersonSaving(deal.ID)"
+                      placeholder="Выбрать"
+                      class="trusted-person-autocomplete"
+                      :menu-props="{ zIndex: 3300 }"
+                      @focus="ensureDealContactsLoaded(deal)"
+                      @click="ensureDealContactsLoaded(deal)"
+                      @update:model-value="(value) => updateTrustedPerson(deal, value)"
+                    />
                   </td>
                   <td class="col-linked-spa">
                     <div class="linked-spa-cell">
@@ -1164,11 +1181,12 @@
 // @ts-nocheck
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { callApi, callBxMethod, callBatch, callBatchCommands } from '../functions/callApi'
-import { resolveDealMetricContribution, resolveDealReportSum } from '../functions/eventReportMetrics'
+import { DEAL_REPORT_SUM_FIELD, getDealSumParts, parseDealReportSum, resolveDealMetricContribution } from '../functions/eventReportMetrics'
 import AudienceSegmentationDialog from './AudienceSegmentationDialog.vue'
 import AppZoomSlider from './AppZoomSlider.vue'
 import ChecklistTypeDialog from './ChecklistTypeDialog.vue'
 import { useAppZoom } from '../composables/useAppZoom'
+import { useStickyEventDealsHeader } from '../composables/useStickyEventDealsHeader'
 import RequiredFieldAutocomplete from './RequiredFieldAutocomplete.vue'
 import {
   AGREEMENT_STAGES,
@@ -1178,6 +1196,7 @@ import {
   FINAL_SUM_FIELD,
   getRequiredFieldNamesForStage,
   getStageOption,
+  isRefusalStage,
   MAILING_STAGES,
   PARTICIPATION_STATUS_FIELD,
   POTENTIAL_STAGES,
@@ -1230,6 +1249,7 @@ const emit = defineEmits([
   'precise-deal',
   'mass-generation',
   'create-company',
+  'open-company-catalog',
   'send-mailing',
   'welcome-mailing',
   'export-excel',
@@ -1240,6 +1260,7 @@ const emit = defineEmits([
 ])
 
 const { zoomStyle } = useAppZoom()
+const { refreshEventDealsStickyHeader, destroyEventDealsStickyHeader } = useStickyEventDealsHeader()
 
 const EXTRA_OPTIONS_ENTITY_TYPE_ID = 1056
 const COMMERCE_ENTITY_TYPE_ID = 1060
@@ -1270,6 +1291,7 @@ const page = ref(1)
 const selectedDealIds = ref([])
 const openActionMenu = ref(null)
 const openMedicalCatalogDealId = ref(null)
+const openMedicalCatalogPosition = ref({ top: 0, left: 0 })
 const savingStageDealId = ref(null)
 const failedAvatars = ref(new Set())
 const editingCell = ref({
@@ -1336,9 +1358,16 @@ const savingTrustedPersonDealId = ref(null)
 const participationStatusOptions = ref([])
 const participationStatusesLoading = ref(false)
 const savingParticipationStatusDealId = ref(null)
-const pageSize = 100
+const pageSize = 20
 
-const MONEY_FIELDS = new Set([PRELIMINARY_SUM_FIELD, FINAL_SUM_FIELD, 'UF_CRM_1745222013992'])
+const MONEY_FIELDS = new Set([
+  PRELIMINARY_SUM_FIELD,
+  FINAL_SUM_FIELD,
+  'UF_CRM_1745222013992',
+  'UF_CRM_1742972105926',
+  'UF_CRM_1742972167794',
+  DEAL_REPORT_SUM_FIELD,
+])
 const DATE_FIELDS = new Set([TRANSFER_DATE_FIELD, LAST_CALL_DATE_FIELD])
 const NUMBER_FIELDS = new Set([SQM_FIELD])
 const TEXT_FIELDS = new Set([STAND_NUMBER_FIELD, COMMENT_FIELD])
@@ -1482,14 +1511,22 @@ function isMedicalCatalogMenuOpen(dealId) {
   return openMedicalCatalogDealId.value != null && String(openMedicalCatalogDealId.value) === String(dealId)
 }
 
-function toggleMedicalCatalogMenu(deal) {
+function toggleMedicalCatalogMenu(deal, event) {
   const dealId = deal?.ID
   if (dealId == null) return
-  openMedicalCatalogDealId.value = isMedicalCatalogMenuOpen(dealId) ? null : dealId
+  if (isMedicalCatalogMenuOpen(dealId)) {
+    openMedicalCatalogDealId.value = null
+    return
+  }
+  const rect = event?.currentTarget?.getBoundingClientRect?.()
+  if (rect) {
+    openMedicalCatalogPosition.value = { top: rect.bottom + 4, left: rect.left }
+  }
+  openMedicalCatalogDealId.value = dealId
 }
 
 const MEDICATION_CATALOG_PATH = '/page/spravochniki/pgirfw/type/189/'
-const EQUIPMENT_CATALOG_PATH = '/page/spravochniki/oborudovanie/type/1104/details/'
+const EQUIPMENT_CATALOG_PATH = '/crm/type/1104/'
 
 function buildCompanyCatalogPath(basePath, companyId, companyTitle) {
   if (!companyId) return basePath
@@ -1524,6 +1561,9 @@ async function openMedicalCatalog(deal, type) {
 
 onMounted(() => {
   document.addEventListener('click', onDocumentClick)
+  if (props.modelValue) {
+    nextTick(() => refreshEventDealsStickyHeader())
+  }
 })
 
 function companyName(deal) {
@@ -1725,6 +1765,24 @@ function stageClassByStageId(stageId) {
   })
 }
 
+/**
+ * Группа стадии для CSS: по ней показываются/скрываются части «Суммы сделки».
+ * base | mailing | calls | potential | agreements | success | refusal | unknown
+ * «Успешные» (Передано / мероприятие завершено) отнесены к success.
+ */
+function dealStageGroup(deal) {
+  const stageId = String(deal?.STAGE_ID || '')
+  if (!stageId) return 'unknown'
+  if (isRefusalStage(stageId)) return 'refusal'
+  if (BASE_STAGES.includes(stageId)) return 'base'
+  if (MAILING_STAGES.includes(stageId)) return 'mailing'
+  if (CALL_STAGES.includes(stageId)) return 'calls'
+  if (POTENTIAL_STAGES.includes(stageId)) return 'potential'
+  if (AGREEMENT_STAGES.includes(stageId)) return 'agreements'
+  if (SUCCESS_STAGES.includes(stageId)) return 'success'
+  return 'unknown'
+}
+
 function stageBadgeClass(deal) {
   if (REFUSAL_STAGES.includes(deal?.STAGE_ID)) return 'stage-badge--danger'
   if (BASE_STAGES.includes(deal?.STAGE_ID)) return 'stage-badge--sky-light'
@@ -1739,6 +1797,24 @@ function stageBadgeClass(deal) {
     return 'stage-badge--green'
   }
   return 'stage-badge--neutral'
+}
+
+function dealSumTotal(deal) {
+  // Если общая сумма задана вручную — показываем её, иначе считаем по разбивке.
+  const stored = parseDealReportSum(deal)
+  if (stored > 0) return stored
+  const parts = getDealSumParts(deal)
+  return parts.preliminary + parts.final + parts.additional + parts.offBudget
+}
+
+function dealSumParts(deal) {
+  const parts = getDealSumParts(deal)
+  return [
+    { key: 'preliminary', label: 'Предвар. сумма участия', value: parts.preliminary, field: PRELIMINARY_SUM_FIELD },
+    { key: 'final', label: 'Финальная сумма участия', value: parts.final, field: FINAL_SUM_FIELD },
+    { key: 'additional', label: 'Сумма доп. продажи', value: parts.additional, field: 'UF_CRM_1742972105926' },
+    { key: 'offBudget', label: 'Сумма внебюджет', value: parts.offBudget, field: 'UF_CRM_1742972167794' },
+  ]
 }
 
 function formatMoney(value) {
@@ -1763,6 +1839,13 @@ function formatMoney(value) {
 function formatMoneyOrDash(value) {
   const number = Number(value)
   if (!Number.isFinite(number) || number === 0) return '—'
+  return formatMoney(number)
+}
+
+/** Как в макете: нулевые суммы показываем как «0 ₽», а не прочерк */
+function formatMoneyOrZero(value) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) return formatMoney(0)
   return formatMoney(number)
 }
 
@@ -1854,6 +1937,11 @@ function isCellSaving(dealId, field) {
 
 
 function getCellDraftValue(deal, field) {
+  // Для общей суммы подставляем в редактор то, что сейчас показано (сумма по разбивке или сохранённая).
+  if (field === DEAL_REPORT_SUM_FIELD) {
+    const total = dealSumTotal(deal)
+    return total ? String(Math.round(total)) : ''
+  }
   if (MONEY_FIELDS.has(field)) return normalizeMoneyInput(deal?.[field])
   if (DATE_FIELDS.has(field)) return toDateInputValue(deal?.[field])
   if (NUMBER_FIELDS.has(field)) {
@@ -2782,6 +2870,21 @@ const filteredDeals = computed(() => {
   return deals.filter((deal) => matchesSearch(deal, query))
 })
 
+/** Группы стадий, для которых столбец «Сумма сделки» не показываем */
+const STAGE_GROUPS_WITHOUT_DEAL_SUM = ['base', 'mailing', 'calls', 'refusal', 'unknown']
+
+/**
+ * Столбец «Сумма сделки» показываем, только если среди сделок текущей выборки
+ * есть хотя бы одна со стадией, где сумма имеет смысл
+ * (потенциал / договорённости / передано / завершено).
+ * Иначе — например на вкладке «База» или «Отказы» — столбца нет вовсе.
+ */
+const showDealSumColumn = computed(() => (
+  filteredDeals.value.some(
+    (deal) => !STAGE_GROUPS_WITHOUT_DEAL_SUM.includes(dealStageGroup(deal)),
+  )
+))
+
 function clearSearchDebounceTimer() {
   if (searchDebounceTimer == null) return
   window.clearTimeout(searchDebounceTimer)
@@ -3132,6 +3235,11 @@ function formatContactTitle(contact) {
     .filter(Boolean)
     .join(' ')
   if (fullName) return fullName
+  const combined = String(contact.FULL_NAME || '').trim()
+  if (combined) return combined
+  const firstName = String(contact.FIRST_NAME || '').trim()
+  const lastName = String(contact.LAST_NAME || '').trim()
+  if (firstName || lastName) return [lastName, firstName].filter(Boolean).join(' ')
   return contact.TITLE || `Контакт #${contact.ID}`
 }
 
@@ -3539,7 +3647,7 @@ async function refreshDealTrustedPersonData(dealId) {
 async function loadContactsByIds(ids) {
   const uniqueIds = [...new Set(
     (ids || [])
-      .map((id) => String(id))
+      .map((id) => String(id).trim())
       .filter((id) => id && !contactsById.value[id]),
   )]
   if (!uniqueIds.length) return
@@ -3547,20 +3655,28 @@ async function loadContactsByIds(ids) {
   contactsLoading.value = true
   try {
     const nextMap = { ...contactsById.value }
-    // callApi сам режет ID на чанки по 50 и забирает через BX24.callBatch
-    const result = await callApi(
-      'crm.contact.list',
-      { ID: uniqueIds },
-      ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME', 'POST'],
-    )
-    const items = Array.isArray(result)
-      ? (result.length && Array.isArray(result[0]) ? result.flat() : result)
-      : []
-    items.forEach((contact) => {
-      const id = String(contact.ID ?? contact.id ?? '')
-      if (!id) return
-      nextMap[id] = contact
-    })
+    // Bitrix crm.contact.list ожидает числовые ID в filter.ID — режем на чанки по 50.
+    const numericIds = uniqueIds
+      .map((id) => Number(id))
+      .filter((id) => Number.isFinite(id) && id > 0)
+
+    if (numericIds.length) {
+      const result = await callApi(
+        'crm.contact.list',
+        { ID: numericIds },
+        ['ID', 'NAME', 'LAST_NAME', 'SECOND_NAME', 'POST', 'TITLE', 'FULL_NAME'],
+      )
+      const items = Array.isArray(result)
+        ? (result.length && Array.isArray(result[0]) ? result.flat() : result)
+        : []
+      items.forEach((contact) => {
+        const id = String(contact.ID ?? contact.id ?? '')
+        if (!id) return
+        nextMap[id] = contact
+      })
+    }
+
+    // Контакты, которые не удалось получить по числовым ID, помечаем, чтобы не дёргать повторно.
     contactsById.value = nextMap
     contactsRevision.value += 1
   } catch (error) {
@@ -3813,6 +3929,7 @@ watch(
     } else {
       root.classList.remove('event-deals-dialog-open')
       clearDialogViewportSize()
+      destroyEventDealsStickyHeader()
     }
 
     if (!open) {
@@ -3842,6 +3959,8 @@ watch(
     if (!props.refreshing) {
       void bootstrapVisibleCompanyContacts()
     }
+    // Заголовок таблицы закрепляем после отрисовки таблицы
+    nextTick(() => refreshEventDealsStickyHeader())
   },
 )
 
@@ -3865,6 +3984,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
   document.documentElement.classList.remove('event-deals-dialog-open')
   clearDialogViewportSize()
+  destroyEventDealsStickyHeader()
 })
 
 watch(
@@ -3897,6 +4017,8 @@ watch(filteredDeals, () => {
   if (!props.refreshing && !isDialogLoading.value) {
     void bootstrapVisibleCompanyContacts({ silent: true })
   }
+  // Состав колонок и строк изменился — пересобираем клон заголовка
+  nextTick(() => refreshEventDealsStickyHeader())
 })
 
 watch(page, () => {
@@ -3906,6 +4028,7 @@ watch(page, () => {
   if (!props.refreshing && !isDialogLoading.value) {
     void bootstrapVisibleCompanyContacts({ silent: true })
   }
+  nextTick(() => refreshEventDealsStickyHeader())
 })
 
 watch(
@@ -3926,6 +4049,7 @@ watch(
     loadEventChecklist()
     loadCommerceFilterDealIds()
     applyDialogViewportSize()
+    nextTick(() => refreshEventDealsStickyHeader())
   },
 )
 
@@ -3959,9 +4083,10 @@ watch(
   padding: 1rem 1.25rem 0.85rem;
   background: #fff;
   border-bottom: 0;
+  /* Шапка — часть прокручиваемого содержимого окна */
   flex: 0 0 auto;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .event-deals-dialog__top {
@@ -3969,20 +4094,22 @@ watch(
   flex-direction: column;
   gap: 0.75rem;
   flex: 0 0 auto;
+  /* Шапка скроллится вместе с остальным содержимым окна */
   margin: 0.75rem;
   padding-bottom: 0.85rem;
   border: 1px solid #e2e8f0;
   border-radius: 1rem;
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
-  overflow: hidden;
+  /* Не обрезаем выпадающие меню и не мешаем прокрутке окна */
+  overflow: visible;
 }
 
 .event-deals-dialog__header-main {
   flex: 1 1 10rem;
   min-width: 0;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .event-deals-dialog__metrics-row {
@@ -4440,6 +4567,25 @@ watch(
   position: relative;
 }
 
+/* Единый скролл для всего окна мероприятия: шапка + категории + таблица.
+   Обычный блочный поток — так шапка гарантированно уезжает вверх при прокрутке. */
+.event-deals-dialog__content--scrollable {
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 0 0.75rem !important;
+}
+
+.event-deals-dialog__content--scrollable > * {
+  margin-bottom: 0.75rem;
+}
+
+.event-deals-dialog__content--scrollable > *:last-child {
+  margin-bottom: 0;
+}
+
 .event-deals-dialog__toolbar {
   display: flex;
   flex-wrap: nowrap;
@@ -4522,7 +4668,7 @@ watch(
   display: flex;
   align-items: stretch;
   gap: 0;
-  margin-bottom: 0;
+  margin: 0.75rem 0.75rem 0;
   flex: 0 0 auto;
   min-width: 0;
   position: relative;
@@ -4531,6 +4677,164 @@ watch(
   border-radius: 0.75rem;
   background: #fff;
   overflow: visible;
+}
+
+/* ===== Блок действий: «Работа с компаниями» + «Другое» ===== */
+.event-actions-panel {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  margin: 0 0.75rem;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .event-actions-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.event-actions-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.85rem;
+  background: #fff;
+}
+
+.event-actions-group__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.event-actions-group__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 0.6rem;
+  background: #eef3ff;
+  color: #315ee9;
+}
+
+.event-actions-group--side .event-actions-group__icon {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.event-actions-group__titles {
+  min-width: 0;
+}
+
+.event-actions-group__title {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #263248;
+}
+
+.event-actions-group__subtitle {
+  margin: 0.15rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: #7b8799;
+}
+
+.event-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.event-actions-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 720px) {
+  .event-actions-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Кнопка-плитка с иконкой, текстом и стрелкой — как в макете */
+.event-action-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-width: 0;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid #dfe5ee;
+  border-radius: 0.6rem;
+  background: #fff;
+  color: #263248;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.event-action-card:hover {
+  background: #f3f6ff;
+  border-color: #bdcbef;
+}
+
+.event-action-card:focus-visible {
+  outline: 2px solid #abc0ff;
+  outline-offset: 2px;
+}
+
+.event-action-card:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.event-action-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 0.45rem;
+  background: #eef3ff;
+  color: #315ee9;
+}
+
+.event-action-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.event-action-card__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #263248;
+}
+
+.event-action-card__hint {
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: #7b8799;
+}
+
+.event-action-card__arrow {
+  flex: 0 0 auto;
+  color: #9aa6b8;
+  margin-left: auto;
 }
 
 .event-deals-dialog__panel-head {
@@ -4560,6 +4864,7 @@ watch(
   flex: 1 1 auto;
   gap: 0.65rem;
   min-width: 0;
+  margin-top: 0.75rem;
   padding: 0.85rem 1rem;
   border: 0;
   border-radius: 0;
@@ -4711,10 +5016,11 @@ watch(
 .event-deals-table-card {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   align-self: stretch;
   min-height: 0;
-  height: 100%;
+  height: auto;
+  margin: 0 0.75rem;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
@@ -4723,16 +5029,19 @@ watch(
 }
 
 .event-deals-table-wrap {
-  flex: 1 1 auto;
+  flex: 0 0 auto;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
+  /* Вертикальный скролл — у всего окна, горизонтальный — у таблицы */
+  overflow-x: auto;
+  overflow-y: visible;
+  overscroll-behavior-x: contain;
 }
 
 .event-deals-table {
-  width: 100%;
+  /* Ширина по контенту: если не влезает — появляется горизонтальный скролл */
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  min-width: 1320px;
   table-layout: auto;
 }
 
@@ -4750,7 +5059,7 @@ watch(
 .event-deals-table td.deal-company-cell,
 .event-deals-table td.deal-company-cell * {
   overflow-wrap: break-word;
-  word-break: break-all;
+  word-break: break-word;
   white-space: normal;
 }
 
@@ -4767,8 +5076,8 @@ watch(
   color: #64748b;
   background: #f8fafc;
   white-space: nowrap;
-  position: sticky;
-  top: 0;
+  /* Клон-закрепление рисуется отдельным fixed-слоем (см. .event-deals-sticky-header) */
+  position: relative;
   z-index: 2;
 }
 
@@ -4795,15 +5104,161 @@ watch(
   padding: 2rem 1rem !important;
 }
 
+/* ===== Колонка «Общая сумма» ===== */
+.event-deals-table th.col-deal-total,
+.event-deals-table th.col-deal-parts {
+  text-align: center;
+  white-space: nowrap;
+}
+
+.deal-total-cell {
+  width: 1%;
+  white-space: nowrap;
+  vertical-align: middle;
+  text-align: right;
+}
+
+.deal-total-cell__value {
+  display: inline-block;
+  min-width: 84px;
+  padding: 0.05rem 0.3rem;
+  text-align: right;
+  color: #536175;
+  font-variant-numeric: tabular-nums;
+}
+
+.deal-total-cell__editor,
+.deal-total-cell__editor .cell-editor__input {
+  min-width: 92px;
+  width: 92px;
+  text-align: right;
+}
+
+/* ===== Колонка «Другие суммы»: метки слева, значения справа за линией ===== */
+.deal-parts-cell {
+  width: 1%;
+  padding: 0.3rem 0.45rem !important;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.deal-parts-cell__content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.deal-parts-cell__row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  line-height: 1.35;
+}
+
+.deal-parts-cell__label {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  color: #84909f;
+  white-space: nowrap;
+}
+
+.deal-parts-cell__value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  /* Общая ширина колонки значений: одинаковый правый край у всех частей */
+  flex: 0 0 84px;
+  width: 84px;
+  box-sizing: border-box;
+  padding-left: 0.25rem;
+  font-size: 0.75rem;
+  color: #536175;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+ * Разделитель — ОДИН элемент на всю высоту ячейки (а не линия у каждой части).
+ * Стоит по левой границе колонки значений: правая граница content минус
+ * ширина значений (84px) — это и есть линия «метки | значения».
+ */
+.deal-parts-cell__content {
+  position: relative;
+}
+
+.deal-parts-cell__content::before {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  right: 84px;
+  width: 1px;
+  background: #e6eaf0;
+  pointer-events: none;
+}
+
+.deal-parts-cell__value .editable-cell {
+  display: inline-block;
+  min-width: 76px;
+  padding: 0.02rem 0.15rem;
+  text-align: right;
+}
+
+.deal-parts-cell__value .cell-editor,
+.deal-parts-cell__value .cell-editor__input {
+  min-width: 84px;
+  width: 84px;
+  text-align: right;
+}
+
+.deal-parts-cell .editable-cell--empty {
+  color: #96a1b0;
+}
+
+/* ===== Видимость частей «Других сумм» по стадии =====
+   Строка получает класс stage-группы, части помечены data-sum-part="<ключ>".
+   Предвар. сумма участия    → preliminary
+   Финальная сумма участия   → final
+   Сумма доп. продажи        → additional
+   Сумма внебюджет           → offBudget                                   */
+
+/* «Передано» и «Договоренности»: без предварительной суммы */
+.event-deals-table tbody tr.event-deals-table__row--stage-success .deal-parts-cell__row[data-sum-part="preliminary"],
+.event-deals-table tbody tr.event-deals-table__row--stage-agreements .deal-parts-cell__row[data-sum-part="preliminary"] {
+  display: none !important;
+}
+
+/* «Потенциал»: без финальной суммы */
+.event-deals-table tbody tr.event-deals-table__row--stage-potential .deal-parts-cell__row[data-sum-part="final"] {
+  display: none !important;
+}
+
+/* Остальные стадии (база, рассылка, обзвон, отказы, неизвестные):
+   обе колонки остаются в разметке, но их содержимое скрыто —
+   иначе съезжают соседние столбцы */
+.event-deals-table tbody tr.event-deals-table__row--stage-base .deal-total-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-base .deal-parts-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-mailing .deal-total-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-mailing .deal-parts-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-calls .deal-total-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-calls .deal-parts-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-refusal .deal-total-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-refusal .deal-parts-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-unknown .deal-total-cell__content,
+.event-deals-table tbody tr.event-deals-table__row--stage-unknown .deal-parts-cell__content {
+  display: none !important;
+}
+
 .deal-company {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 0.35rem;
-  min-width: 155px;
+  min-width: 0;
   max-width: 300px;
   width: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .deal-company__text {
@@ -4823,9 +5278,16 @@ watch(
   line-height: 1.25;
   text-align: left;
   cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  /* Название компании переносится по словам, а не обрезается */
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
+  hyphens: auto;
 }
 
 .deal-company__deal-link:hover {
@@ -4858,10 +5320,8 @@ watch(
 }
 
 .deal-company__med-menu-popup {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 0.25rem);
-  left: 0;
+  position: fixed;
+  z-index: 2400;
   min-width: 10rem;
   padding: 0.3rem;
   border: 1px solid #cbd5e1;
@@ -5020,7 +5480,21 @@ watch(
   display: flex;
   align-items: center;
   gap: 1rem;
-  min-width: 140px;
+  min-width: 98px;
+}
+
+/* Столбец «Выбрано:» — фиксированная ширина */
+.event-deals-table th.col-selection-summary,
+.event-deals-table td.deal-company-cell {
+  width: 12rem;
+  min-width: 12rem;
+  box-sizing: border-box;
+}
+
+.selection-summary span {
+  white-space: normal;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .selection-summary button {
@@ -5097,23 +5571,39 @@ watch(
 }
 
 .trusted-person-cell {
-  min-width: 180px;
-  max-width: 240px;
+  min-width: 144px;
+  max-width: 192px;
+  vertical-align: middle;
 }
 
 .trusted-person-autocomplete {
-  min-width: 160px;
+  min-width: 128px;
 }
 
 .trusted-person-autocomplete :deep(.v-field) {
   border-radius: 0.35rem;
   font-size: 0.75rem;
+  height: auto !important;
 }
 
 .trusted-person-autocomplete :deep(.v-field__input) {
   min-height: 32px;
-  padding-top: 0;
-  padding-bottom: 0;
+  height: auto !important;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  align-items: flex-start !important;
+}
+
+/* Полный текст с переносом по словам */
+.trusted-person-autocomplete :deep(.v-field__input),
+.trusted-person-autocomplete :deep(.v-select__selection-text),
+.trusted-person-autocomplete :deep(.v-autocomplete__selection) {
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.25 !important;
 }
 
 .stage-badge {
@@ -5437,7 +5927,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 0.85rem 1rem;
+  padding: 0.5rem;
   border-top: 1px solid #eef2f7;
   flex: 0 0 auto;
   margin-top: auto;
@@ -5446,6 +5936,7 @@ watch(
   z-index: 4;
   background: #fff;
   box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.06);
+  border-radius: 0 0 0.75rem 0.75rem;
 }
 
 .event-deals-pagination__info {
@@ -5665,20 +6156,21 @@ watch(
 
 .event-deals-table th.col-status-participation,
 .event-deals-table td.col-status-participation {
-  width: 10.35rem; /* 9rem + 15% */
-  min-width: 10.35rem;
-  max-width: 10.35rem;
+  width: 9.52rem; /* 11.9rem − 20% */
+  min-width: 9.52rem;
+  max-width: 9.52rem;
   padding-left: 0.4rem;
   padding-right: 0.4rem;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
   vertical-align: middle;
+  /* Длинный текст статуса переносится по словам, а не обрезается */
+  white-space: normal;
 }
 
 .event-deals-table th.col-status-participation {
-  white-space: normal;
-  line-height: 1.15;
-  text-align: center;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .status-participation-select {
@@ -5697,13 +6189,51 @@ watch(
 .status-participation-select :deep(.v-field) {
   font-size: 0.6875rem;
   min-height: 28px !important;
+  height: auto !important;
+}
+
+/* Полный текст статуса с переносом по словам */
+.status-participation-select :deep(.v-field__input),
+.status-participation-select :deep(.v-select__selection-text),
+.status-participation-select :deep(.v-autocomplete__selection) {
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  line-height: 1.2 !important;
+  height: auto !important;
+  max-width: 100% !important;
+}
+
+/* Vuetify держит выбранное значение в <input>: делаем его многострочным и видимым */
+.status-participation-select :deep(.v-field__input > input) {
+  white-space: normal !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  height: auto !important;
+  min-height: 1.2em !important;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100% !important;
 }
 
 .status-participation-select :deep(.v-field__input) {
   min-height: 28px !important;
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
+  height: auto !important;
+  padding-top: 5px !important;
+  padding-bottom: 5px !important;
   padding-inline: 6px !important;
+  align-items: flex-start !important;
+  flex-wrap: wrap;
+}
+
+/* Признак того, что колонка «Статус участия» должна расти по высоте */
+.status-participation-cell .linked-spa-cell,
+.status-participation-cell__inner {
+  align-items: flex-start;
 }
 
 .status-participation-select :deep(.v-field__append-inner),
@@ -5851,6 +6381,40 @@ watch(
 </style>
 
 <style>
+/* Закреплённая шапка таблицы сделок (клон <thead>, создаётся composable'ом) */
+.event-deals-sticky-header {
+  position: fixed;
+  z-index: 2410;
+  display: none;
+  overflow: hidden;
+  pointer-events: none;
+  background: #f8fafc;
+  box-shadow: 0 1px 0 rgba(226, 232, 240, 0.95);
+}
+
+.event-deals-sticky-header table {
+  margin: 0;
+  border-collapse: collapse;
+}
+
+.event-deals-sticky-header th {
+  background: #f8fafc;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #64748b;
+  white-space: nowrap;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid #eef2f7;
+  border-right: 1px solid #eef2f7;
+  box-sizing: border-box;
+}
+
+.event-deals-sticky-header th:last-child {
+  border-right: 0;
+}
+
 .event-deals-dialog-overlay.v-overlay {
   position: fixed !important;
   inset: 0 !important;
@@ -5905,20 +6469,20 @@ watch(
 }
 
 .event-deals-dialog-wrapper .event-deals-dialog__content.v-card-text {
-  display: flex !important;
-  flex-direction: column !important;
+  /* Блочный поток + прокрутка: всё содержимое (включая шапку) скроллится вместе */
+  display: block !important;
   flex: 1 1 auto !important;
   width: 100%;
   height: 100% !important;
   max-height: none !important;
   min-height: 0 !important;
   max-width: none;
-  gap: 0.75rem !important;
-  padding: 0 1.25rem 1rem !important;
-  overflow: hidden !important;
+  padding: 0 0 0.75rem !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   pointer-events: auto !important;
-  align-content: flex-start !important;
-  justify-content: flex-start !important;
 }
 
 .event-deals-dialog-wrapper .event-deals-dialog__toolbar,
@@ -5930,20 +6494,24 @@ watch(
 }
 
 .event-deals-dialog-wrapper .event-deals-table-card {
-  flex: 1 1 auto !important;
+  flex: 0 0 auto !important;
   min-height: 0 !important;
-  height: 100% !important;
+  height: auto !important;
   margin-bottom: 0 !important;
+  margin-top: 0.75rem;
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
 }
 
 .event-deals-dialog-wrapper .event-deals-table-wrap {
-  flex: 1 1 auto !important;
-  min-height: 120px !important;
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
   max-height: none !important;
-  overflow: auto !important;
+  /* Вертикальная прокрутка — у всего окна, горизонтальная — у таблицы */
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  overscroll-behavior-x: contain;
 }
 
 .event-deals-dialog-wrapper .event-deals-pagination {
@@ -5954,12 +6522,26 @@ watch(
   z-index: 5 !important;
   background: #ffffff !important;
   box-shadow: 0 -6px 16px rgba(15, 23, 42, 0.06);
+  border-radius: 0 0 0.75rem 0.75rem;
 }
 
-html.event-deals-dialog-open,
-html.event-deals-dialog-open body {
-  overflow: hidden !important;
-  overscroll-behavior: none;
+/* Единый скролл окна мероприятия: шапка и панели скроллятся вместе с таблицей */
+.event-deals-dialog-wrapper .event-deals-dialog__top,
+.event-deals-dialog-wrapper .event-deals-dialog__header,
+.event-deals-dialog-wrapper .event-deals-dialog__toolbar,
+.event-deals-dialog-wrapper .event-deals-dialog__search {
+  flex: 0 0 auto !important;
+  min-height: 0 !important;
+  /* Шапка НЕ закреплена — едет вверх вместе с содержимым */
+  position: static !important;
+  top: auto !important;
+}
+
+/* Выпадающие меню в шапке не должны обрезаться прокруткой */
+.event-deals-dialog-wrapper .event-deals-dialog__top,
+.event-deals-dialog-wrapper .event-deals-dialog__header,
+.event-deals-dialog-wrapper .event-deals-dialog__header-main {
+  overflow: visible !important;
 }
 
 .required-fields-dialog-overlay.v-overlay,
@@ -5987,5 +6569,11 @@ html.event-deals-dialog-open body {
   max-width: min(560px, calc(100vw - 2rem)) !important;
   max-height: min(90dvh, 720px) !important;
   overflow: visible !important;
+}
+
+.v-autocomplete .v-autocomplete__selection-text {
+  overflow: unset;
+  text-overflow: unset;
+  white-space: unset;
 }
 </style>

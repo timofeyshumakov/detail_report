@@ -83,7 +83,7 @@
         :id="'audience-' + String(audienceName).replace(/\s+/g, '-')"
       >
         <div class="section-head">
-          <h2 class="section-title">{{ audienceTitles.get(audienceName) || audienceName }}</h2>
+          <h2 class="section-title">{{ getAudienceDisplayTitle(audienceName) }}</h2>
           <span class="count-pill">{{ formatContactCount(audience.length) }}</span>
         </div>
 
@@ -340,7 +340,7 @@
         :key="'no-contacts-' + audienceName"
       >
         <div class="section-head">
-          <h2 class="section-title">{{ audienceTitles.get(audienceName) || audienceName }}</h2>
+          <h2 class="section-title">{{ getAudienceDisplayTitle(audienceName) }}</h2>
           <span class="count-pill">{{ formatContactCount(0) }}</span>
         </div>
         <div class="section-extra always">
@@ -549,7 +549,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch, reactive, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, reactive, nextTick } from 'vue';
 import { callApi, callBxMethod, getListElements } from '../functions/callApi';
 import LoadingSpinner from './LoadingSpinner.vue';
 
@@ -602,16 +602,30 @@ export default {
       return [items];
     };
 
+    const formatAudienceTitle = (titleOrId) => {
+      const raw = String(titleOrId ?? '').trim();
+      if (!raw || raw.toLowerCase() === 'false') {
+        return 'Без ЦА';
+      }
+      return raw;
+    };
+
     const buildAudienceTitlesMap = (items) => {
       const map = new Map();
       normalizeListElements(items).forEach((item) => {
         const id = item?.ID ?? item?.id;
         const name = item?.NAME ?? item?.name ?? item?.TITLE ?? item?.title;
         if (id != null && id !== '' && name != null && String(name).trim() !== '') {
-          map.set(String(id), String(name));
+          map.set(String(id), formatAudienceTitle(name));
         }
       });
       return map;
+    };
+
+    const getAudienceDisplayTitle = (titleOrId) => {
+      const str = String(titleOrId ?? '').trim();
+      const mapped = audienceTitles.value.get(str);
+      return formatAudienceTitle(mapped || str);
     };
 
     const normalizeContactAudienceField = (contact) => {
@@ -630,6 +644,41 @@ export default {
           return String(item);
         })
         .filter(Boolean);
+    };
+
+    /**
+     * Открепляет контакты от компании.
+     * Bitrix: crm.company.contact.delete { id: <компания>, fields: { CONTACT_ID: <контакт> } }
+     * @returns {{ success: boolean, errors: string[] }}
+     */
+    const detachContacts = async (targetCompanyId, contactIds = []) => {
+      const ids = (Array.isArray(contactIds) ? contactIds : [contactIds])
+        .map((id) => String(id ?? '').trim())
+        .filter(Boolean);
+      const company = String(targetCompanyId ?? '').trim();
+
+      if (!company || !ids.length) {
+        return { success: false, errors: ['Не указана компания или контакт'] };
+      }
+
+      const errors = [];
+
+      for (const contactId of ids) {
+        try {
+          await callBxMethod('crm.company.contact.delete', {
+            id: company,
+            fields: { CONTACT_ID: contactId },
+          });
+        } catch (err) {
+          console.error(`Не удалось открепить контакт ${contactId}:`, err);
+          errors.push(`Контакт ${contactId}: ${err?.message || 'ошибка'}`);
+        }
+      }
+
+      return {
+        success: errors.length === 0,
+        errors,
+      };
     };
     const loading = ref(true);
     const detachLoading = ref(false);
@@ -664,7 +713,7 @@ const selectedAudienceFilter = ref('');
   contacts.value.forEach(contact => {
     if (contact.UF_CRM_1753364801 && contact.UF_CRM_1753364801.length > 0) {
       contact.UF_CRM_1753364801.forEach(audienceId => {
-        const audienceTitle = audienceTitles.value.get(String(audienceId));
+        const audienceTitle = getAudienceDisplayTitle(audienceId);
         if (audienceTitle && audienceTitle.trim() !== '' && !allAudienceIds.has(String(audienceId))) {
           allAudienceIds.add(String(audienceId));
           options.push({
@@ -723,7 +772,7 @@ const selectedAudienceFilter = ref('');
           });
         }
       } else {
-        const audienceTitle = audienceTitles.value.get(String(audienceId)) || audienceId;
+        const audienceTitle = getAudienceDisplayTitle(audienceId);
         elementId = `audience-${String(audienceTitle).replace(/\s+/g, '-')}`;
         element = document.getElementById(elementId);
         
@@ -952,7 +1001,7 @@ const selectedAudienceFilter = ref('');
       }
       
       return contact.UF_CRM_1753364801
-        .map(audienceId => audienceTitles.value.get(String(audienceId)) || String(audienceId))
+        .map(audienceId => getAudienceDisplayTitle(audienceId))
         .filter(title => title && title.trim() !== '');
     };
 
@@ -1170,6 +1219,32 @@ const selectedAudienceFilter = ref('');
       }
     };
 
+    /** Процентная ширина каждого столбца по порядку:
+     * 0: ФИО, 1: Должность, 2: Город, 3: Целевые аудитории, 4: E-mail, 5: Телефон, 6: Действие
+     */
+    const COLUMN_WIDTH_PERCENTS = ['20%', '15%', '10%', '20%', '13%', '12%', '10%'];
+
+    const syncTableColumnWidths = () => {
+      const tables = Array.from(document.querySelectorAll('.contacts-table'));
+      if (!tables.length) return;
+
+      tables.forEach((table) => {
+        table.style.tableLayout = 'fixed';
+        table.style.width = '100%';
+        table.style.minWidth = '0px';
+        table.style.maxWidth = '100%';
+        const headers = table.querySelectorAll('thead th');
+        headers.forEach((header, index) => {
+          if (index >= COLUMN_WIDTH_PERCENTS.length) return;
+          header.style.boxSizing = 'border-box';
+          header.style.width = COLUMN_WIDTH_PERCENTS[index];
+          header.style.maxWidth = COLUMN_WIDTH_PERCENTS[index];
+          header.style.whiteSpace = 'normal';
+          header.style.overflowWrap = 'break-word';
+        });
+      });
+    };
+
     const fetchData = async () => {
       try {
         loading.value = true;
@@ -1205,7 +1280,7 @@ const selectedAudienceFilter = ref('');
                 let values = Array.isArray(product.ufCrm26_1753365041) ?
                   product.ufCrm26_1753365041 :
                   [product.ufCrm26_1753365041];
-                return values.map(value => audienceTitles.value.get(String(value)) || String(value)).filter(d => d !== undefined);
+                return values.map(value => getAudienceDisplayTitle(value)).filter(d => d !== undefined);
               });
 
             contact.medications = medications;
@@ -1219,7 +1294,12 @@ const selectedAudienceFilter = ref('');
         error.value = err.message || 'Ошибка загрузки данных';
         console.error('Ошибка:', err);
       } finally {
+        // Сначала рендерим таблицы, затем синхронизируем ширину столбцов.
+        // Синхронизация выполняется до отрисовки браузером, поэтому состояние
+        // загрузки снимается уже с выровненными столбцами.
         loading.value = false;
+        await nextTick();
+        syncTableColumnWidths();
       }
     };
 
@@ -1269,7 +1349,7 @@ const selectedAudienceFilter = ref('');
             product.ufCrm26_1753365041 : 
             [product.ufCrm26_1753365041];
           audiences.forEach(audienceId => {
-            const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+            const audienceTitle = getAudienceDisplayTitle(audienceId);
             if (audienceTitle && audienceTitle.trim() !== '') {
               allAudiences.add(String(audienceId));
             }
@@ -1281,7 +1361,7 @@ const selectedAudienceFilter = ref('');
             equip.ufCrm62_1753365319 : 
             [equip.ufCrm62_1753365319];
           audiences.forEach(audienceId => {
-            const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+            const audienceTitle = getAudienceDisplayTitle(audienceId);
             if (audienceTitle && audienceTitle.trim() !== '') {
               allAudiences.add(String(audienceId));
             }
@@ -1289,7 +1369,7 @@ const selectedAudienceFilter = ref('');
         });
         
         allAudiences.forEach(audienceId => {
-          const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+          const audienceTitle = getAudienceDisplayTitle(audienceId);
           
           if (!audienceTitle || audienceTitle.trim() === '') {
             return;
@@ -1319,7 +1399,7 @@ const selectedAudienceFilter = ref('');
         }
         
         targetAudiences.forEach(audienceId => {
-          const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+          const audienceTitle = getAudienceDisplayTitle(audienceId);
           
           if (!audienceTitle || audienceTitle.trim() === '') {
             return;
@@ -1359,7 +1439,7 @@ const selectedAudienceFilter = ref('');
           equip.ufCrm62_1753365319 : 
           [equip.ufCrm62_1753365319];
         audiences.forEach(audienceId => {
-          const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+          const audienceTitle = getAudienceDisplayTitle(audienceId);
           
           if (!audienceTitle || audienceTitle.trim() === '') {
             return;
@@ -1394,7 +1474,7 @@ const selectedAudienceFilter = ref('');
     })
     .forEach(contact => {
       contact.UF_CRM_1753364801.forEach(audienceId => {
-        const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+        const audienceTitle = getAudienceDisplayTitle(audienceId);
         
         if (!audienceTitle || audienceTitle.trim() === '') {
           return;
@@ -1432,7 +1512,7 @@ const selectedAudienceFilter = ref('');
           product.ufCrm26_1753365041 : 
           [product.ufCrm26_1753365041];
         audiences.forEach(audienceId => {
-          const audienceTitle = audienceTitles.value.get(String(audienceId)) || String(audienceId);
+          const audienceTitle = getAudienceDisplayTitle(audienceId);
           
           if (!audienceTitle || audienceTitle.trim() === '') {
             return;
@@ -1668,7 +1748,7 @@ const createContact = async () => {
                         let values = Array.isArray(product.ufCrm26_1753365041) ?
                             product.ufCrm26_1753365041 :
                             [product.ufCrm26_1753365041];
-                        return values.map(value => audienceTitles.value.get(String(value)) || String(value)).filter(d => d !== undefined);
+                        return values.map(value => getAudienceDisplayTitle(value)).filter(d => d !== undefined);
                     });
 
                 loadedContact[0].medications = medications;
@@ -1735,7 +1815,7 @@ const cancelCreate = () => {
       const filter = appliedAudienceFilter.value;
       if (!filter) return true;
       if (filter === 'no-audience') return false;
-      const filterTitle = audienceTitles.value.get(String(filter)) || String(filter);
+      const filterTitle = getAudienceDisplayTitle(filter);
       return audienceTitle === filterTitle;
     };
 
@@ -1938,6 +2018,11 @@ const cancelCreate = () => {
 
     onMounted(() => {
       runFetch();
+      window.addEventListener('resize', syncTableColumnWidths);
+    });
+
+    onUnmounted(() => {
+      window.removeEventListener('resize', syncTableColumnWidths);
     });
 
     watch(
@@ -1976,6 +2061,7 @@ const cancelCreate = () => {
       contactsWithoutAudience,
       displayedContactsWithoutAudience,
       audienceTitles,
+      getAudienceDisplayTitle,
       cityTitles,
       filteredAudienceMedications,
       filteredAudienceEquipment,
@@ -2309,9 +2395,50 @@ const cancelCreate = () => {
 
 .contacts-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
-  min-width: 960px;
   border: 1px solid var(--line);
+}
+
+.contacts-table th:nth-child(1),
+.contacts-table td:nth-child(1) {
+  width: 20%;
+}
+
+.contacts-table th:nth-child(2),
+.contacts-table td:nth-child(2) {
+  width: 15%;
+}
+
+.contacts-table th:nth-child(3),
+.contacts-table td:nth-child(3) {
+  width: 10%;
+}
+
+.contacts-table th:nth-child(4),
+.contacts-table td:nth-child(4) {
+  width: 20%;
+}
+
+.contacts-table th:nth-child(5),
+.contacts-table td:nth-child(5) {
+  width: 13%;
+}
+
+.contacts-table th:nth-child(6),
+.contacts-table td:nth-child(6) {
+  width: 12%;
+}
+
+.contacts-table th:nth-child(7),
+.contacts-table td:nth-child(7) {
+  width: 10%;
+}
+
+.contacts-table th,
+.contacts-table td {
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .contacts-table th {
@@ -2394,6 +2521,7 @@ const cancelCreate = () => {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  min-width: 0;
 }
 
 .tag {
@@ -2403,7 +2531,13 @@ const cancelCreate = () => {
   padding: 4px 8px;
   font-size: 0.75rem;
   font-weight: 600;
-  white-space: nowrap;
+  text-transform: none;
+  /* Длинное название ЦА переносится по словам, а не растягивает столбец */
+  max-width: 100%;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .email-link {

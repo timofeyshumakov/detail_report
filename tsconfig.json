@@ -1,38 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "useDefineForClassFields": true,
-    "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "skipLibCheck": true,
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
+    "module": "commonjs",
+    "target": "es2022",
+    "removeComments": true,
+    "preserveConstEnums": true,
+    "sourceMap": true,
     "noEmit": true,
-    "jsx": "preserve",
-    "strict": true,
+    "allowImportingTsExtensions": true,
     "noImplicitAny": false,
-    "strictNullChecks": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true,
-    "types": ["vite/client", "node"],
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
+  },
+    "vueCompilerOptions": {
+      "plugins": [
+        "@vue/language-plugin-pug"
+      ]
     }
-  },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx",
-    "src/**/*.vue",
-    "src/env.d.ts"
-  ],
-  "exclude": ["node_modules", "dist"],
-  "vueCompilerOptions": {
-    "strictTemplates": false,
-    "plugins": ["@vue/language-plugin-pug"]
-  },
-  "references": [{ "path": "./tsconfig.node.json" }]
-}
+  }

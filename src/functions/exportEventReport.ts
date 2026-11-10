@@ -1,5 +1,3 @@
-import * as XLSX from 'xlsx'
-
 export type EventReportRow = {
   event?: string
   audience?: string

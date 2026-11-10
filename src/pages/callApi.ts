@@ -2,7 +2,7 @@ export const SERVER_HANDLER_URL = 'https://master.rymar-consulting.ru/request/ha
 
 export function getServerHandlerUrl(override?: string): string {
     const url = override || SERVER_HANDLER_URL;
-    return url.endsWith('/') ? url : `${url}/`;
+    return url.replace(/\/+$/, '');
 }
 
 /** Проверяем что работаем внутри Bitrix24 */
@@ -106,9 +106,8 @@ const BX_PAGE_SIZE = 50;
 const BX_BATCH_LIMIT = 50;
 /**
  * Сколько list-страниц класть в один BX24.callBatch.
- * 50 crm.deal.list в одном batch часто упирается в operation time limit.
  */
-const BX_LIST_BATCH_PAGES = 5;
+const BX_LIST_BATCH_PAGES = 50;
 
 type BxCommand = { method: string; params: Record<string, unknown> };
 

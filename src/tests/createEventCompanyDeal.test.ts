@@ -3,6 +3,7 @@ import {
   buildEventDealFieldsFromCompany,
   extractCompanyIdFromPath,
   findNewlyCreatedCompany,
+  getEventObserverIds,
 } from '../functions/createEventCompanyDeal'
 
 describe('createEventCompanyDeal', () => {
@@ -19,7 +20,14 @@ describe('createEventCompanyDeal', () => {
     expect(created).toEqual({ ID: 3, TITLE: 'New Co' })
   })
 
-  it('builds deal fields with company title and event link', () => {
+  it('extracts observer ids from event', () => {
+    expect(getEventObserverIds({})).toEqual([])
+    expect(getEventObserverIds({ ufCrm38_1753082810: [12, '15', 12] })).toEqual([12, 15])
+    expect(getEventObserverIds({ ufCrm38_1753082810: '12, 15, 12' })).toEqual([12, 15])
+    expect(getEventObserverIds({ UF_CRM_38_1753082810: ['42'] })).toEqual([42])
+  })
+
+  it('builds deal fields with company title, event link and observers', () => {
     const fields = buildEventDealFieldsFromCompany(
       { ID: 77, TITLE: 'ООО Ромашка', UF_CRM_1753364407: ['10', '11'] },
       {
@@ -29,6 +37,7 @@ describe('createEventCompanyDeal', () => {
         ufCrm38_1753082280: 3,
         ufCrm38_1745221903440: '1000|RUB',
         ufCrm38_1750326807: 'desc',
+        ufCrm38_1753082810: [101, 102],
       },
       { ID: 1614 },
       [9],
@@ -40,5 +49,6 @@ describe('createEventCompanyDeal', () => {
     expect(fields.UF_CRM_1744890618774).toBe('ООО Ромашка')
     expect(fields.CONTACT_IDS).toEqual([9])
     expect(fields.UF_CRM_1754897181).toEqual([10, 11])
+    expect(fields.observers).toEqual([101, 102])
   })
 })

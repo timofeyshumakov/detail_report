@@ -58,8 +58,13 @@ declare global {
   // eslint-disable-next-line no-var
   var BX24: Bx24Api | undefined
 
+  // XLSX (SheetJS) загружается из CDN в index.html
+  // eslint-disable-next-line no-var
+  var XLSX: any
+
   interface GlobalThis {
     BX24?: Bx24Api
+    XLSX?: any
   }
 }
 
