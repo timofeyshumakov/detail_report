@@ -22,6 +22,8 @@ describe('createEventCompanyDeal', () => {
 
   it('extracts observer ids from event', () => {
     expect(getEventObserverIds({})).toEqual([])
+    expect(getEventObserverIds({ observers: [10, 20] })).toEqual([10, 20])
+    expect(getEventObserverIds({ observers: '10, 20' })).toEqual([10, 20])
     expect(getEventObserverIds({ ufCrm38_1753082810: [12, '15', 12] })).toEqual([12, 15])
     expect(getEventObserverIds({ ufCrm38_1753082810: '12, 15, 12' })).toEqual([12, 15])
     expect(getEventObserverIds({ UF_CRM_38_1753082810: ['42'] })).toEqual([42])

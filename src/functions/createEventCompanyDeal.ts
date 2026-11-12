@@ -1,4 +1,4 @@
-import { SERVER_HANDLER_URL } from '../pages/callApi'
+import { SERVER_HANDLER_URL, callBxMethod, callBatchCommands } from '../pages/callApi'
 
 export const EVENT_DEAL_CATEGORY_ID = 32
 export const EVENT_DEAL_STAGE_ID = 'C32:NEW'
@@ -27,7 +27,7 @@ function getCompanyAudienceIds(company: Record<string, unknown>) {
 }
 
 export function getEventObserverIds(event: Record<string, unknown>): number[] {
-  const raw = event?.ufCrm38_1753082810 ?? event?.UF_CRM_38_1753082810
+  const raw = event?.observers ?? event?.OBSERVERS ?? event?.ufCrm38_1753082810 ?? event?.UF_CRM_38_1753082810
   if (raw == null || raw === '') return []
 
   const items = Array.isArray(raw) ? raw : String(raw).split(',')
@@ -73,6 +73,13 @@ async function serverCall(method: string, params: Record<string, unknown> = {}):
   return data.data ?? data.result ?? null
 }
 
+async function apiCall(method: string, params: Record<string, unknown> = {}): Promise<any> {
+  if (typeof (window as any).BX24 !== 'undefined') {
+    return callBxMethod(method, params)
+  }
+  return serverCall(method, params)
+}
+
 export function extractCompanyIdFromPath(path: string | null | undefined): number | null {
   if (!path) return null
   const match = String(path).match(/\/crm\/company\/details\/(\d+)\/?/i)
@@ -105,7 +112,8 @@ export function attachCompanySliderCloseTracker(onCapture: (url: string) => void
 
 export async function fetchRecentCompanies(limit = 100) {
   const list = flattenCallApiResult(
-    await serverCall('crm.company.list', {
+    await apiCall('crm.company.list', {
+      order: { ID: 'DESC' },
       select: ['ID', 'TITLE', 'UF_CRM_1753364407', 'UF_CRM_1753364801'],
     }),
   )
@@ -118,7 +126,7 @@ export async function fetchRecentCompanies(limit = 100) {
 
 export async function fetchCompanyById(companyId: string | number) {
   try {
-    const company = await serverCall('crm.company.get', { id: companyId })
+    const company = await apiCall('crm.company.get', { id: companyId })
     return company?.ID || company?.id ? company : null
   } catch (error) {
     console.error('Не удалось загрузить компанию:', error)
@@ -132,7 +140,8 @@ export async function fetchCompaniesNewerThan(minId: number, limit = 30) {
   }
 
   const list = flattenCallApiResult(
-    await serverCall('crm.company.list', {
+    await apiCall('crm.company.list', {
+      order: { ID: 'DESC' },
       filter: { '>ID': minId },
       select: ['ID', 'TITLE', 'UF_CRM_1753364407', 'UF_CRM_1753364801'],
     }),
@@ -146,7 +155,7 @@ export async function fetchCompaniesNewerThan(minId: number, limit = 30) {
 
 export async function getCurrentBxUser() {
   try {
-    const user = await serverCall('user.current', {})
+    const user = await apiCall('user.current', {})
     return user
   } catch (error) {
     console.error('Не удалось получить текущего пользователя:', error)
@@ -156,7 +165,7 @@ export async function getCurrentBxUser() {
 
 async function fetchCompanyContactIds(companyId: string | number) {
   try {
-    const data = await serverCall('crm.company.contact.items.get', { id: companyId })
+    const data = await apiCall('crm.company.contact.items.get', { id: companyId })
     const items = Array.isArray(data) ? data : (data?.items || [])
 
     return (items || [])
@@ -206,22 +215,76 @@ export async function createDealForEventCompany(
   const contactIds = await fetchCompanyContactIds(company.ID)
   const fields = buildEventDealFieldsFromCompany(company, event, author, contactIds)
 
-  return serverCall('crm.deal.add', { fields })
+  const result = await apiCall('crm.deal.add', { fields })
+  const dealId = result?.ID ?? result?.id ?? result
+  return dealId
 }
 
 export async function appendDealIdsToEvent(eventId: string | number, createdDealIds: Array<string | number>) {
   if (!eventId || !createdDealIds.length) return
 
   const eventItem = await getCrmItem(EVENT_ENTITY_TYPE_ID, eventId)
-  const startAddedDeals = eventItem?.ufCrm38AddedDeals || ''
+  const startAddedDeals = eventItem?.ufCrm38AddedDeals || eventItem?.ufCrm38_AddedDeals || ''
 
-  await serverCall('crm.item.update', {
+  await apiCall('crm.item.update', {
     entityTypeId: EVENT_ENTITY_TYPE_ID,
     id: eventId,
     fields: {
       ufCrm38_AddedDeals: `${startAddedDeals} / ${createdDealIds.join(', ')}`,
     },
   })
+}
+
+export async function attachObserversToDeals(
+  dealIds: Array<string | number>,
+  event: Record<string, any> | null | undefined,
+) {
+  if (!dealIds?.length || !event) return
+
+  let observerIds = getEventObserverIds(event)
+  if (!observerIds.length && (event.id || event.ID)) {
+    try {
+      const eventItem = await getCrmItem(EVENT_ENTITY_TYPE_ID, event.id ?? event.ID)
+      observerIds = getEventObserverIds(eventItem)
+    } catch (e) {
+      console.warn('Не удалось догрузить наблюдателей мероприятия:', e)
+    }
+  }
+
+  if (!observerIds.length) return
+
+  const uniqueDealIds = [...new Set(dealIds.map((id) => String(id).trim()).filter(Boolean))]
+  if (!uniqueDealIds.length) return
+
+  if (typeof (window as any).BX24 !== 'undefined') {
+    const commands = uniqueDealIds.map((dealId) => ({
+      method: 'crm.deal.update',
+      params: {
+        id: dealId,
+        fields: {
+          observers: observerIds,
+        },
+      },
+    }))
+    try {
+      await callBatchCommands(commands)
+    } catch (error) {
+      console.error('Ошибка добавления наблюдателей через batch:', error)
+    }
+  } else {
+    for (const dealId of uniqueDealIds) {
+      try {
+        await apiCall('crm.deal.update', {
+          id: dealId,
+          fields: {
+            observers: observerIds,
+          },
+        })
+      } catch (err) {
+        console.warn(`Не удалось обновить наблюдателей для сделки ${dealId}:`, err)
+      }
+    }
+  }
 }
 
 export function findNewlyCreatedCompany(
@@ -281,5 +344,6 @@ export async function resolveCreatedCompanyAfterClose(
 
 // Вспомогательная функция для получения элемента CRM
 async function getCrmItem(entityTypeId: number, id: string | number): Promise<any> {
-  return serverCall('crm.item.get', { entityTypeId, id })
+  const result = await apiCall('crm.item.get', { entityTypeId, id })
+  return result?.item ?? result
 }

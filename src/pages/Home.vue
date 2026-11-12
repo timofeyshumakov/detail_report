@@ -358,49 +358,69 @@
                   {{ item.event }}
                 </button>
                 <span v-else>{{ item.event }}</span>
-
-                <button
-                  v-if="item.UF_CRM_1742797326"
-                  type="button"
-                  class="event-open-btn"
-                  title="Открыть мероприятие в Bitrix"
-                  aria-label="Открыть мероприятие в Bitrix"
-                  @click.stop="openEventInBitrix(item)"
-                >
-                  <v-icon size="14" icon="mdi-view-grid-outline" />
-                  <v-icon size="14" icon="mdi-arrow-right" />
-                </button>
               </div>
 
-              <div class="event-checklist-inline">
-                <button
-                  v-if="getEventChecklist(item)?.itemId"
-                  type="button"
-                  class="event-checklist-inline__tag"
-                  title="Открыть чек-лист"
-                  @click.stop="openEventChecklistFromTable(item)"
-                >
-                  <span>
-                    Чек-лист
-                    {{ getEventChecklist(item).filled }}/{{ getEventChecklist(item).total }}
-                  </span>
-                  <span class="event-checklist-inline__bar" aria-hidden="true">
-                    <span
-                      class="event-checklist-inline__fill"
-                      :class="getChecklistBarClass(getEventChecklist(item).percent)"
-                      :style="{ width: `${getEventChecklist(item).percent}%` }"
-                    />
-                  </span>
-                </button>
-                <button
-                  v-else-if="item.UF_CRM_1742797326"
-                  type="button"
-                  class="event-checklist-inline__create"
-                  title="Создать чек-лист"
-                  @click.stop="createEventChecklistFromTable(item)"
-                >
-                  Создать чек-лист
-                </button>
+              <div class="event-cell__bar">
+                <div class="event-checklist-inline">
+                  <button
+                    v-if="getEventChecklist(item)?.itemId"
+                    type="button"
+                    class="event-checklist-inline__tag"
+                    title="Открыть чек-лист"
+                    @click.stop="openEventChecklistFromTable(item)"
+                  >
+                    <span>
+                      Чек-лист
+                      {{ getEventChecklist(item).filled }}/{{ getEventChecklist(item).total }}
+                    </span>
+                    <span class="event-checklist-inline__bar" aria-hidden="true">
+                      <span
+                        class="event-checklist-inline__fill"
+                        :class="getChecklistBarClass(getEventChecklist(item).percent)"
+                        :style="{ width: `${getEventChecklist(item).percent}%` }"
+                      />
+                    </span>
+                  </button>
+                  <button
+                    v-else-if="item.UF_CRM_1742797326"
+                    type="button"
+                    class="event-checklist-inline__create"
+                    title="Создать чек-лист"
+                    @click.stop="createEventChecklistFromTable(item)"
+                  >
+                    Создать чек-лист
+                  </button>
+                </div>
+
+                <div v-if="item.UF_CRM_1742797326" class="event-tools">
+                  <button
+                    type="button"
+                    class="event-tool-btn"
+                    title="Перейти в мероприятие"
+                    aria-label="Перейти в мероприятие"
+                    @click.stop="openEventInBitrix(item)"
+                  >
+                    <v-icon size="14" icon="mdi-arrow-right" />
+                  </button>
+                  <button
+                    type="button"
+                    class="event-tool-btn"
+                    title="Внести данные"
+                    aria-label="Внести данные"
+                    @click.stop="openEditEventDataDialog(item)"
+                  >
+                    <v-icon size="14" icon="mdi-pencil-outline" />
+                  </button>
+                  <button
+                    type="button"
+                    class="event-tool-btn"
+                    title="Дать доступ к мероприятию"
+                    aria-label="Дать доступ к мероприятию"
+                    @click.stop="openEventAccessDialog(item)"
+                  >
+                    <v-icon size="14" icon="mdi-account-plus-outline" />
+                  </button>
+                </div>
               </div>
             </div>
           </template>
@@ -651,6 +671,237 @@
       v-model="checklistTypeDialog.open"
       @select="createEventChecklistOfType"
     />
+
+    <!-- Диалог «Внести данные» по мероприятию -->
+    <v-dialog
+      v-model="editEventDataDialog.open"
+      max-width="500px"
+      persistent
+    >
+      <v-card class="pa-4">
+        <v-card-title class="d-flex align-center justify-space-between pa-0 mb-3">
+          <span class="text-h6 font-weight-regular">Внести данные</span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            density="compact"
+            :disabled="editEventDataDialog.saving"
+            @click="closeEditEventDataDialog"
+          />
+        </v-card-title>
+
+        <v-card-subtitle v-if="editEventDataDialog.eventTitle" class="pa-0 mb-4 text-truncate text-medium-emphasis">
+          {{ editEventDataDialog.eventTitle }}
+        </v-card-subtitle>
+
+        <v-form @submit.prevent="saveEditEventData">
+          <div class="mb-4">
+            <label class="d-block text-body-2 font-weight-medium mb-1">Менеджер отдела продаж</label>
+            <v-autocomplete
+              v-model="editEventDataDialog.managers"
+              :items="allUsersOptions"
+              item-title="FULL_NAME"
+              item-value="ID"
+              placeholder="Выберите сотрудников"
+              multiple
+              chips
+              closable-chips
+              clearable
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+              :loading="allUsersLoading"
+              no-data-text="Сотрудники не найдены"
+            >
+              <template #chip="{ props, item }">
+                <v-chip
+                  v-bind="props"
+                  size="small"
+                  class="ma-1"
+                >
+                  <v-avatar start size="20" color="primary" variant="tonal">
+                    <img
+                      v-if="item.raw?.PERSONAL_PHOTO_URL"
+                      :src="item.raw.PERSONAL_PHOTO_URL"
+                      :alt="item.raw.FULL_NAME"
+                      class="avatar-image"
+                    />
+                    <span v-else class="text-caption font-weight-bold">
+                      {{ getUserInitials(item.raw?.FULL_NAME || '') }}
+                    </span>
+                  </v-avatar>
+                  {{ item.raw?.FULL_NAME }}
+                </v-chip>
+              </template>
+              <template #item="{ props, item }">
+                <v-list-item
+                  v-bind="props"
+                  :title="item.raw?.FULL_NAME"
+                  :subtitle="item.raw?.WORK_POSITION || ''"
+                >
+                  <template #prepend>
+                    <v-avatar size="24" color="primary" variant="tonal">
+                      <img
+                        v-if="item.raw?.PERSONAL_PHOTO_URL"
+                        :src="item.raw.PERSONAL_PHOTO_URL"
+                        :alt="item.raw.FULL_NAME"
+                        class="avatar-image"
+                      />
+                      <span v-else class="text-caption font-weight-bold">
+                        {{ getUserInitials(item.raw?.FULL_NAME || '') }}
+                      </span>
+                    </v-avatar>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
+          </div>
+
+          <div class="mb-2">
+            <label class="d-block text-body-2 font-weight-medium mb-1">План выручки от спонсоров</label>
+            <v-text-field
+              v-model="editEventDataDialog.revenue"
+              placeholder="0,00"
+              suffix="₽"
+              variant="outlined"
+              density="comfortable"
+              inputmode="decimal"
+              hide-details="auto"
+              :error-messages="editEventDataDialog.revenueError"
+              @update:model-value="editEventDataDialog.revenueError = ''"
+            />
+          </div>
+
+          <v-card-actions class="d-flex justify-end ga-2 px-0 pt-4 mt-2 border-t">
+            <v-btn
+              variant="outlined"
+              color="grey-darken-1"
+              :disabled="editEventDataDialog.saving"
+              @click="closeEditEventDataDialog"
+            >
+              Отмена
+            </v-btn>
+            <v-btn
+              type="submit"
+              color="primary"
+              variant="flat"
+              :loading="editEventDataDialog.saving"
+            >
+              Сохранить
+            </v-btn>
+          </v-card-actions>
+        </v-form>
+      </v-card>
+    </v-dialog>
+
+    <!-- Диалог «Дать доступ к мероприятию» -->
+    <v-dialog
+      v-model="eventAccessDialog.open"
+      max-width="500px"
+      persistent
+    >
+      <v-card class="pa-4">
+        <v-card-title class="d-flex align-center justify-space-between pa-0 mb-3">
+          <span class="text-h6 font-weight-regular">Дать доступ к мероприятию</span>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            density="compact"
+            :disabled="eventAccessDialog.saving"
+            @click="closeEventAccessDialog"
+          />
+        </v-card-title>
+
+        <v-card-subtitle v-if="eventAccessDialog.eventTitle" class="pa-0 mb-4 text-truncate text-medium-emphasis">
+          {{ eventAccessDialog.eventTitle }}
+        </v-card-subtitle>
+
+        <v-form @submit.prevent="saveEventAccess">
+          <div class="mb-4">
+            <label class="d-block text-body-2 font-weight-medium mb-1">Сотрудники (наблюдатели)</label>
+            <v-autocomplete
+              v-model="eventAccessDialog.observers"
+              :items="allUsersOptions"
+              item-title="FULL_NAME"
+              item-value="ID"
+              placeholder="Выберите сотрудников для доступа"
+              multiple
+              chips
+              closable-chips
+              clearable
+              variant="outlined"
+              density="comfortable"
+              hide-details="auto"
+              :loading="allUsersLoading || eventAccessDialog.loading"
+              no-data-text="Сотрудники не найдены"
+            >
+              <template #chip="{ props, item }">
+                <v-chip
+                  v-bind="props"
+                  size="small"
+                  class="ma-1"
+                >
+                  <v-avatar start size="20" color="primary" variant="tonal">
+                    <img
+                      v-if="item.raw?.PERSONAL_PHOTO_URL"
+                      :src="item.raw.PERSONAL_PHOTO_URL"
+                      :alt="item.raw.FULL_NAME"
+                      class="avatar-image"
+                    />
+                    <span v-else class="text-caption font-weight-bold">
+                      {{ getUserInitials(item.raw?.FULL_NAME || '') }}
+                    </span>
+                  </v-avatar>
+                  {{ item.raw?.FULL_NAME }}
+                </v-chip>
+              </template>
+              <template #item="{ props, item }">
+                <v-list-item
+                  v-bind="props"
+                  :title="item.raw?.FULL_NAME"
+                  :subtitle="item.raw?.WORK_POSITION || ''"
+                >
+                  <template #prepend>
+                    <v-avatar size="24" color="primary" variant="tonal">
+                      <img
+                        v-if="item.raw?.PERSONAL_PHOTO_URL"
+                        :src="item.raw.PERSONAL_PHOTO_URL"
+                        :alt="item.raw.FULL_NAME"
+                        class="avatar-image"
+                      />
+                      <span v-else class="text-caption font-weight-bold">
+                        {{ getUserInitials(item.raw?.FULL_NAME || '') }}
+                      </span>
+                    </v-avatar>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-autocomplete>
+          </div>
+
+          <v-card-actions class="d-flex justify-end ga-2 px-0 pt-4 mt-2 border-t">
+            <v-btn
+              variant="outlined"
+              color="grey-darken-1"
+              :disabled="eventAccessDialog.saving"
+              @click="closeEventAccessDialog"
+            >
+              Отмена
+            </v-btn>
+            <v-btn
+              type="submit"
+              color="primary"
+              variant="flat"
+              :loading="eventAccessDialog.saving"
+            >
+              Сохранить
+            </v-btn>
+          </v-card-actions>
+        </v-form>
+      </v-card>
+    </v-dialog>
   </div>
     </v-main>
   </v-app>
@@ -682,6 +933,7 @@ import {
   ensureUsersByIds,
   registerUserProfile,
   mapUserForAssignedFilter,
+  ensureAllUsers,
   userProfilesById,
   usersById,
   USER_SELECT_FIELDS,
@@ -703,6 +955,7 @@ import {
 import { loadEventChecklistsMap } from '../functions/loadEventChecklist';
 import {
   appendDealIdsToEvent,
+  attachObserversToDeals,
   attachCompanySliderCloseTracker,
   buildCompanyCreatePath,
   createDealForEventCompany,
@@ -753,6 +1006,228 @@ const checklistTypeDialog = ref({
   open: false,
   eventId: null,
 });
+
+const allUsersList = ref([]);
+const allUsersLoading = ref(false);
+
+const allUsersOptions = computed(() => {
+  const users = allUsersList.value.length ? allUsersList.value : asArray(filters.value.value.assigned);
+  return users.map((u) => {
+    const id = String(u.ID || u.id);
+    const profile = userProfilesById.value[id];
+    const fullName = u.FULL_NAME || profile?.name || [u.LAST_NAME, u.NAME, u.SECOND_NAME].filter(Boolean).join(' ') || `Сотрудник #${id}`;
+    return {
+      ID: id,
+      FULL_NAME: fullName,
+      PERSONAL_PHOTO_URL: profile?.photo || '',
+      WORK_POSITION: u.WORK_POSITION || '',
+    };
+  });
+});
+
+async function loadAllCompanyUsers() {
+  if (allUsersList.value.length) return allUsersList.value;
+  allUsersLoading.value = true;
+  try {
+    const users = await ensureAllUsers();
+    allUsersList.value = users.map(mapUserForAssignedFilter);
+    return allUsersList.value;
+  } catch (error) {
+    console.error('Ошибка загрузки сотрудников:', error);
+    return [];
+  } finally {
+    allUsersLoading.value = false;
+  }
+}
+
+const editEventDataDialog = ref({
+  open: false,
+  eventId: null,
+  eventTitle: '',
+  managers: [],
+  revenue: '',
+  revenueError: '',
+  saving: false,
+});
+
+const eventAccessDialog = ref({
+  open: false,
+  eventId: null,
+  eventTitle: '',
+  observers: [],
+  loading: false,
+  saving: false,
+});
+
+function openEditEventDataDialog(item) {
+  const eventId = item?.UF_CRM_1742797326;
+  if (eventId == null || eventId === '') {
+    showSnackbar('Не удалось определить мероприятие', 'error');
+    return;
+  }
+
+  const event = findEventById(eventId);
+  const managerIds = event ? getEventManagerIds(event.ufCrm38_1753082810) : (item?.managerIds || []);
+  const rawRevenue = event?.ufCrm38_1745221903440 ?? item?.planProfit;
+  const numericRevenue = parseMoneyField(rawRevenue);
+
+  editEventDataDialog.value = {
+    open: true,
+    eventId,
+    eventTitle: item?.event || event?.title || '',
+    managers: managerIds.map(String),
+    revenue: numericRevenue > 0 ? String(numericRevenue).replace('.', ',') : '',
+    revenueError: '',
+    saving: false,
+  };
+
+  void loadAllCompanyUsers();
+}
+
+function closeEditEventDataDialog() {
+  if (editEventDataDialog.value.saving) return;
+  editEventDataDialog.value.open = false;
+}
+
+async function saveEditEventData() {
+  const { eventId, managers, revenue } = editEventDataDialog.value;
+  if (!eventId) return;
+
+  const rawAmount = String(revenue || '').trim().replace(/\s/g, '').replace(',', '.');
+  let formattedMoney = '';
+  if (rawAmount !== '') {
+    if (!/^\d+(?:\.\d{1,2})?$/.test(rawAmount) || !isFinite(Number(rawAmount)) || Number(rawAmount) > 999999999999.99) {
+      editEventDataDialog.value.revenueError = 'Введите корректную сумму (не более двух знаков после запятой)';
+      return;
+    }
+    const num = Number(rawAmount);
+    formattedMoney = `${num.toFixed(2)}|RUB`;
+  }
+
+  editEventDataDialog.value.saving = true;
+  editEventDataDialog.value.revenueError = '';
+
+  const managerIds = (managers || []).map((id) => Number(id) || id);
+
+  try {
+    await callBxMethod('crm.item.update', {
+      entityTypeId: EVENT_ENTITY_TYPE_ID,
+      id: eventId,
+      fields: {
+        ufCrm38_1753082810: managerIds,
+        ufCrm38_1745221903440: formattedMoney,
+      },
+    });
+
+    const event = findEventById(eventId);
+    if (event) {
+      event.ufCrm38_1753082810 = managerIds;
+      event.ufCrm38_1745221903440 = formattedMoney;
+    }
+
+    // Обновляем фильтр мероприятий, если объект там отдельный
+    const filterEvent = asArray(filters.value.value.events).find((item) => String(item.id) === String(eventId));
+    if (filterEvent && filterEvent !== event) {
+      filterEvent.ufCrm38_1753082810 = managerIds;
+      filterEvent.ufCrm38_1745221903440 = formattedMoney;
+    }
+
+    await ensureUsersByIds(managerIds);
+    filters.value.value.assigned = buildAssignedUsersFromEvents(events.value);
+    events.value = [...events.value];
+    eventsRevision.value++;
+
+    editEventDataDialog.value.open = false;
+    showSnackbar('Данные мероприятия сохранены', 'success');
+  } catch (error) {
+    console.error('Ошибка сохранения данных мероприятия:', error);
+    showError(error, 'Не удалось сохранить данные мероприятия');
+  } finally {
+    editEventDataDialog.value.saving = false;
+  }
+}
+
+async function openEventAccessDialog(item) {
+  const eventId = item?.UF_CRM_1742797326;
+  if (eventId == null || eventId === '') {
+    showSnackbar('Не удалось определить мероприятие', 'error');
+    return;
+  }
+
+  const event = findEventById(eventId);
+  const currentObservers = Array.isArray(event?.observers)
+    ? event.observers.map(String)
+    : [];
+
+  eventAccessDialog.value = {
+    open: true,
+    eventId,
+    eventTitle: item?.event || event?.title || '',
+    observers: currentObservers,
+    loading: true,
+    saving: false,
+  };
+
+  void loadAllCompanyUsers();
+
+  try {
+    const fresh = await callBxMethod('crm.item.get', {
+      entityTypeId: EVENT_ENTITY_TYPE_ID,
+      id: eventId,
+    });
+    const freshItem = fresh?.item || fresh;
+    if (freshItem) {
+      const freshObservers = Array.isArray(freshItem.observers)
+        ? freshItem.observers.map(String)
+        : (freshItem.observers ? [String(freshItem.observers)] : []);
+      eventAccessDialog.value.observers = freshObservers;
+      if (event) {
+        event.observers = freshObservers;
+      }
+    }
+  } catch (error) {
+    console.warn('Не удалось обновить актуальный список наблюдателей:', error);
+  } finally {
+    eventAccessDialog.value.loading = false;
+  }
+}
+
+function closeEventAccessDialog() {
+  if (eventAccessDialog.value.saving) return;
+  eventAccessDialog.value.open = false;
+}
+
+async function saveEventAccess() {
+  const { eventId, observers } = eventAccessDialog.value;
+  if (!eventId) return;
+
+  eventAccessDialog.value.saving = true;
+
+  const observerIds = (observers || []).map((id) => Number(id) || id);
+
+  try {
+    await callBxMethod('crm.item.update', {
+      entityTypeId: EVENT_ENTITY_TYPE_ID,
+      id: eventId,
+      fields: {
+        observers: observerIds,
+      },
+    });
+
+    const event = findEventById(eventId);
+    if (event) {
+      event.observers = observerIds;
+    }
+
+    eventAccessDialog.value.open = false;
+    showSnackbar('Доступ к мероприятию успешно обновлен', 'success');
+  } catch (error) {
+    console.error('Ошибка предоставления доступа к мероприятию:', error);
+    showError(error, 'Не удалось обновить доступ к мероприятию');
+  } finally {
+    eventAccessDialog.value.saving = false;
+  }
+}
 const SPONSOR_COMPANY_TYPE_ID = '2'
 const SPONSOR_COMPANY_ASSIGNED_BY_ID = '1614'
 /** Подпись фильтра «Ответственный» — тестовый пользователь */
@@ -1240,11 +1715,18 @@ async function onDealGeneratorCompleted(result) {
   const createdIds = Array.isArray(result?.createdDealIds) ? result.createdDealIds : []
   if (!result?.createdCount || !createdIds.length) return
 
-  const eventId = dealGeneratorDialog.value.event?.id
-    ?? dealGeneratorDialog.value.event?.ID
+  const event = dealGeneratorDialog.value.event || findEventById(getOpenEventDealsDialogId())
+  const eventId = event?.id
+    ?? event?.ID
     ?? getOpenEventDealsDialogId()
 
   if (eventId == null || eventId === '') return
+
+  try {
+    await attachObserversToDeals(createdIds, event)
+  } catch (err) {
+    console.error('Ошибка при добавлении наблюдателей к созданным сделкам:', err)
+  }
 
   await refreshDealsAfterCreation(createdIds, eventId, { silent: true })
 }
@@ -1575,6 +2057,7 @@ const loadingMessage = ref('Инициализация…');
 const deals = ref([]);
 const deals2 = ref([]);
 const events = ref([]);
+const eventsRevision = ref(0);
 const cityDirectory = ref([]);
 const failedAvatars = ref(new Set());
 
@@ -1858,6 +2341,7 @@ function syncAssignedFromSelectedDepartments() {
 }
 
 const filteredAssignedOptions = computed(() => {
+  void eventsRevision.value;
   const managerIds = collectEventManagerIds(events.value)
   let users = asArray(filters.value.value.assigned).filter((user) =>
     managerIds.has(String(user.ID)),
@@ -1940,6 +2424,9 @@ const dealsForGroupedEvents = computed(() => {
 })
 
 const groupedEvents = computed(() => {
+  // Зависимость для мгновенной перереактивности при прямом изменении свойств мероприятий (план выручки, менеджеры)
+  void eventsRevision.value;
+
   const dealsByEvent = new Map()
 
   const dealsFromGrouped = dealsForGroupedEvents.value
@@ -3594,6 +4081,49 @@ const getData = async () => {
   .event-cell__title-row > span
     flex: 1 1 auto
     min-width: 0
+
+  .event-cell__bar
+    display: flex
+    align-items: center
+    justify-content: space-between
+    gap: 0.5rem
+    width: 100%
+
+  .event-tools
+    display: inline-flex
+    align-items: stretch
+    border: 1px solid #d4d7dd
+    border-radius: 4px
+    overflow: hidden
+    flex-shrink: 0
+    background: #ffffff
+
+  .event-tool-btn
+    display: inline-flex
+    align-items: center
+    justify-content: center
+    border: 0
+    border-radius: 0
+    width: 25px
+    min-height: 24px
+    height: 24px
+    padding: 3px
+    color: #626c7c
+    background: transparent
+    cursor: pointer
+    line-height: 1
+    transition: background 0.15s ease, color 0.15s ease
+
+    &:hover
+      background: #f1f5fc
+      color: #3b82f6
+
+    &:focus-visible
+      outline: 2px solid #5682cf
+      outline-offset: -1px
+
+  .event-tool-btn + .event-tool-btn
+    border-left: 1px solid #e1e3e7 !important
 
   .event-open-btn
     display: inline-flex
