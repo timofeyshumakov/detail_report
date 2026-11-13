@@ -31,7 +31,7 @@ describe('eventReportMetrics', () => {
     expect(metrics.pd).toBe(100)
   })
 
-  it('transferred deal counts extra option in summ not dog', () => {
+  it('transferred deal counts extra option in summ not dog and replaces preliminary sum with final', () => {
     const metrics = aggregateEventMetrics([
       {
         STAGE_ID: 'C32:UC_R5DX1H',
@@ -41,12 +41,24 @@ describe('eventReportMetrics', () => {
       },
     ])
 
-    expect(metrics.summ).toBe(650)
+    expect(metrics.summ).toBe(550)
     expect(metrics.dog).toBe(0)
     expect(resolveDealMetricContribution({
       STAGE_ID: 'C32:UC_R5DX1H',
       UF_CRM_1742972105926: 50,
     }, 'dog')).toBe(0)
+  })
+
+  it('transferred deal with preliminary 140000 and total 1420000 does not duplicate preliminary', () => {
+    const metrics = aggregateEventMetrics([
+      {
+        STAGE_ID: 'C32:UC_R5DX1H',
+        UF_CRM_1742971372921: 140000,
+        UF_CRM_1759821112055: 1420000,
+      },
+    ])
+
+    expect(metrics.summ).toBe(1420000)
   })
 
   it('additional sales on agreement stage do not increase dog', () => {
@@ -100,10 +112,17 @@ describe('eventReportMetrics', () => {
     })).toBe(5200)
 
     expect(computeDealReportSum({
+      STAGE_ID: 'C32:UC_R5DX1H',
       UF_CRM_1742971372921: 1000,
       UF_CRM_1745222013992: 1500,
       UF_CRM_1759821112055: 500,
-    })).toBe(2000)
+    })).toBe(500)
+
+    expect(computeDealReportSum({
+      STAGE_ID: 'C32:UC_LXYCFO',
+      UF_CRM_1742971372921: 1000,
+      UF_CRM_1745222013992: 1500,
+    })).toBe(1500)
   })
 
   it('buildEventMetricsRow returns metrics for event deals', () => {

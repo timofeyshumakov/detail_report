@@ -97,6 +97,7 @@ export function parseDealReportSum(deal: Record<string, unknown> | null | undefi
 export function computeDealReportSum(deal: Record<string, unknown> | null | undefined): number {
   if (!deal) return 0
 
+  const stageId = String(deal.STAGE_ID || '')
   const preliminary = Math.max(
     parseMoneyComponent(deal[PRELIMINARY_SUM_FIELD]),
     parseMoneyComponent(deal['UF_CRM_1745222013992']),
@@ -105,7 +106,13 @@ export function computeDealReportSum(deal: Record<string, unknown> | null | unde
   const offBudget = parseMoneyComponent(deal['UF_CRM_1742972167794'])
   const additional = parseMoneyComponent(deal['UF_CRM_1742972105926'])
 
-  return preliminary + final + offBudget + additional
+  // На стадиях «Передано» и завершенных предварительная сумма заменяется финальной,
+  // если финальная указана (или есть доп. продажи / внебюджет).
+  const participation = (isCollectedStage(stageId) && (final > 0 || additional > 0 || offBudget > 0))
+    ? final
+    : (final > 0 ? final : preliminary)
+
+  return participation + offBudget + additional
 }
 
 export function resolveDealReportSum(deal: Record<string, unknown> | null | undefined): number {
@@ -180,7 +187,13 @@ function appendDealMetricContribution(
   const buckets = getEventMetricBuckets(stageId)
 
   if (isCollectedStage(stageId)) {
-    applyAmountToMetrics(metrics, partsTotal, { summ: 1, pot: 0, dog: 0, pd: 0 })
+    // В собранную сумму входит финальная сумма участия (или предварительная, если финальной нет),
+    // а также внебюджет и доп. продажи. Предварительная сумма не плюсуется поверх финальной.
+    const collectedPartsTotal = (parts.final > 0 || parts.offBudget > 0 || parts.additional > 0)
+      ? parts.final + parts.offBudget + parts.additional
+      : parts.preliminary
+    const amount = collectedPartsTotal || parseDealReportSum(deal)
+    applyAmountToMetrics(metrics, amount, { summ: 1, pot: 0, dog: 0, pd: 0 })
     return
   }
 

@@ -1804,6 +1804,10 @@ function dealSumTotal(deal) {
   const stored = parseDealReportSum(deal)
   if (stored > 0) return stored
   const parts = getDealSumParts(deal)
+  const isTransferredOrSuccess = TRANSFERRED_STAGES.includes(deal?.STAGE_ID) || deal?.STAGE_ID === 'C32:WON'
+  if (isTransferredOrSuccess && (parts.final > 0 || parts.additional > 0 || parts.offBudget > 0)) {
+    return parts.final + parts.additional + parts.offBudget
+  }
   return parts.preliminary + parts.final + parts.additional + parts.offBudget
 }
 
